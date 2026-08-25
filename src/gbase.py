@@ -42,6 +42,62 @@ class GBase:
             )
         return state.selenium_driver
 
+    def _do_login(self, driver, purl):
+        """Fill the Geneanet login form with stored credentials then navigate to purl."""
+        from src.credentials import get_credentials, CREDENTIALS_FILE
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+
+        username, password = get_credentials()
+        if not username:
+            print(_("No credentials found. Populate %s to enable auto-login:") % CREDENTIALS_FILE)
+            print("  [geneanet]")
+            print("  username = your@email.com")
+            print("  password = yourpassword")
+            return False
+        try:
+            wait = WebDriverWait(driver, 10)
+            # Geneanet (Symfony) uses _username/_password; fall back to type-based selectors
+            user_field = None
+            for sel in [(By.NAME, '_username'), (By.CSS_SELECTOR, 'input[type="email"]'), (By.NAME, 'email')]:
+                try:
+                    user_field = wait.until(EC.presence_of_element_located(sel))
+                    break
+                except Exception:
+                    pass
+            if user_field is None:
+                print(_('Could not locate the username field on the Geneanet login page.'))
+                return False
+            user_field.clear()
+            user_field.send_keys(username)
+            pass_field = None
+            for sel in [(By.NAME, '_password'), (By.CSS_SELECTOR, 'input[type="password"]')]:
+                try:
+                    pass_field = driver.find_element(*sel)
+                    break
+                except Exception:
+                    pass
+            if pass_field is None:
+                print(_('Could not locate the password field on the Geneanet login page.'))
+                return False
+            pass_field.clear()
+            pass_field.send_keys(password)
+            pass_field.submit()
+            # Wait until the browser leaves the login page
+            WebDriverWait(driver, 15).until(
+                lambda d: 'connexion' not in d.current_url and 'login' not in d.current_url
+            )
+            if state.verbosity >= 1:
+                print(_("Login successful."))
+            driver.get(purl)
+            time.sleep(3)
+            return True
+        except Exception as e:
+            if state.verbosity >= 1:
+                print(_("Auto-login failed:"), repr(e))
+            return False
+
     def _smartcopy(self, attr):
         if state.verbosity >= 3:
             print(_("Smart Copying Attributes"), attr)

@@ -105,6 +105,12 @@ class GPerson(GBase):
             else:
                 print(_("Cloudflare challenge was not resolved within the timeout."))
 
+            # Detect connexion/login redirect (includes view_limit_redirect) and auto-login
+            if 'connexion' in driver.current_url or 'login' in driver.current_url:
+                print(_("Geneanet login required for %s.") % purl)
+                if not self._do_login(driver, purl):
+                    return ()
+
             if state.verbosity >= 3:
                 print(_("URL:"), driver.current_url)
                 print(_("Title:"), driver.title)
@@ -116,6 +122,8 @@ class GPerson(GBase):
             print(_("We failed to reach the server at"), purl)
             print("Exception:", repr(e))
             traceback.print_exc()
+            if state.stop_on_error:
+                raise
         else:
             try:
                 tree = html.fromstring(page_content)
@@ -360,6 +368,20 @@ class GPerson(GBase):
                       ' (' + self.g_firstname + ' ' + self.g_lastname + ')')
 
     def find_grampsp(self):
+        # Fast path: match by the stored Geneanet URL (set by to_gramps) — unambiguous
+        if self.url:
+            for handle in state.db.get_person_handles():
+                p = state.db.get_person_from_handle(handle)
+                for u in p.get_url_list():
+                    if u.get_path() == self.url:
+                        self.grampsp = p
+                        self.gid = p.gramps_id
+                        if state.verbosity >= 2:
+                            print(_("Found a Gramps Person by URL: ") + self.g_firstname +
+                                  ' ' + self.g_lastname + " (" + self.gid + ")")
+                        return
+
+        # Fallback: match by name + date
         p = None
         ids = state.db.get_person_gramps_ids()
         for i in ids:
@@ -395,10 +417,12 @@ class GPerson(GBase):
                 self.grampsp = None
                 continue
             if not bd and not dd and not self.g_birthdate and not self.g_deathdate:
-                # we skip a person for which we have no date at all
-                # this may create duplicates, but is the best apparoach
-                self.grampsp = None
-                continue
+                # No dates on either side: accept the name match to avoid creating duplicates
+                self.gid = p.gramps_id
+                if state.verbosity >= 2:
+                    print(_("Found a Gramps Person by name (no dates): ") + self.g_firstname +
+                          ' ' + self.g_lastname + " (" + self.gid + ")")
+                break
             if bd == self.g_birthdate or dd == self.g_deathdate:
                 self.gid = p.gramps_id
                 if state.verbosity >= 2:

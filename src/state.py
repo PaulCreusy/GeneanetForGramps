@@ -29,6 +29,7 @@ LEVEL = 2
 GUIMODE = False
 progress = None
 selenium_driver = None
+stop_on_error = False
 
 CONFIG_NAME = "geneanetforgramps"
 CONFIG = config.register_manager(CONFIG_NAME)

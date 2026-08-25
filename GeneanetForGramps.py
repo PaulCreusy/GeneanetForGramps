@@ -60,6 +60,8 @@ def main():
                         help=_("ID of the person to start from in Gramps"))
     parser.add_argument("-f", "--force", default=False,
                         action='store_true', help=_("Force processing"))
+    parser.add_argument("-e", "--stop-on-error", default=True,
+                        action='store_true', help=_("Stop at the first error instead of skipping it"))
     parser.add_argument("searchedperson", type=str, nargs='?', help=_(
         "Url of the person to search in Geneanet"))
     args = parser.parse_args()
@@ -72,6 +74,7 @@ def main():
     state.gname = args.grampsfile
     state.verbosity = args.verbosity
     state.force = args.force
+    state.stop_on_error = args.stop_on_error
     state.ascendants = args.ascendants
     state.descendants = args.descendants
     state.spouses = args.spouses

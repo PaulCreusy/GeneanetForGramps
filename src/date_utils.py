@@ -1,6 +1,16 @@
 # GeneanetForGramps - Date formatting and conversion helpers
 import re
-from datetime import datetime
+from datetime import date as _date
+
+# strptime('%B') only works for the active C locale; use an explicit map instead
+_MONTHS = {
+    'janvier': 1, 'février': 2, 'mars': 3, 'avril': 4,
+    'mai': 5, 'juin': 6, 'juillet': 7, 'août': 8,
+    'septembre': 9, 'octobre': 10, 'novembre': 11, 'décembre': 12,
+    'january': 1, 'february': 2, 'march': 3, 'april': 4,
+    'may': 5, 'june': 6, 'july': 7, 'august': 8,
+    'september': 9, 'october': 10, 'november': 11, 'december': 12,
+}
 
 import src.state as state
 from src.state import _
@@ -56,6 +66,9 @@ def convert_date(datetab):
         idx = 1
     if datetab[idx] == "1er":
         datetab[idx] = "1"
-    bd1 = datetab[idx] + " " + datetab[idx + 1] + " " + datetab[idx + 2][0:4]
-    bd2 = datetime.strptime(bd1, "%d %B %Y")
-    return bd2.strftime("%Y-%m-%d")
+    day = int(datetab[idx])
+    month = _MONTHS.get(datetab[idx + 1].lower())
+    year = int(datetab[idx + 2][0:4])
+    if not month:
+        raise ValueError("Unknown month name: %s" % datetab[idx + 1])
+    return _date(year, month, day).strftime("%Y-%m-%d")
