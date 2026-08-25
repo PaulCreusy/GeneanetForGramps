@@ -18,7 +18,7 @@ from gramps.version import major_version
 #------------------------------------------------------------------------
 #------------------------------------------------------------------------
 
-#print('Before registering Geneanet Plugin')
+print('Before registering Geneanet Plugin')
 register(TOOL,
     id    = 'Import Geneanet data for Gramps',
     name  = _("Import Geneanet data for Gramps"),
@@ -43,4 +43,4 @@ register(TOOL,
     #help_url = "5.2_Addons#Addon_List",
     #navtypes=["Person"],
 )
-#print('After registering Geneanet Plugin')
+print('After registering Geneanet Plugin')

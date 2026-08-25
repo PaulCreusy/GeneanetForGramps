@@ -422,8 +422,17 @@ class GBase:
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--remote-debugging-port=9222")
             options.add_argument("--window-size=800,800")
+            # Hide automation indicators so Cloudflare allows manual checkbox clicks
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            options.add_experimental_option("useAutomationExtension", False)
 
             selenium_driver = webdriver.Chrome(options=options)
+            # Remove the webdriver property from navigator to bypass Cloudflare detection
+            selenium_driver.execute_cdp_cmd(
+                "Page.addScriptToEvaluateOnNewDocument",
+                {"source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"},
+            )
 
         return selenium_driver
 
@@ -1198,6 +1207,21 @@ class GPerson(GBase):
             driver = self.get_selenium_driver()
 
             driver.get(purl)
+
+            # Wait for Cloudflare challenge to be resolved (manually or automatically)
+            cf_timeout = 120
+            poll_interval = 2
+            elapsed = 0
+            while elapsed < cf_timeout:
+                title = driver.title.lower()
+                if "challenge" not in title and "just a moment" not in title and "attention required" not in title:
+                    break
+                if elapsed == 0:
+                    print(_("Cloudflare verification detected. Please complete the challenge in the browser window."))
+                time.sleep(poll_interval)
+                elapsed += poll_interval
+            else:
+                print(_("Cloudflare challenge was not resolved within the timeout."))
 
             if verbosity >= 3:
                 print(_("URL:"), driver.current_url)
