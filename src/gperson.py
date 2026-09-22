@@ -264,23 +264,32 @@ class GPerson(GBase):
             sref = []
             marriage = []
             for spouse in spouses:
+                # Pre-fill a slot for this spouse before looking for its <a>
+                # tag: a fully private/hidden spouse has none at all, and
+                # without this, sname[s]/sref[s] below would index past the
+                # end of the list and crash.
+                sname.append("")
+                sref.append("")
                 for a in spouse.xpath('a'):
                     sosa = a.find('img')
                     if sosa is None:
                         try:
-                            sname.append(str(a.xpath('text()')[0]).title())
+                            sname[s] = str(a.xpath('text()')[0]).title()
                             if state.verbosity >= 2:
                                 print(_("Spouse name:"), sname[s])
                         except:
-                            sname.append("")
+                            sname[s] = ""
                         try:
-                            sref.append(str(a.xpath('attribute::href')[0]))
+                            sref[s] = str(a.xpath('attribute::href')[0])
                             if state.verbosity >= 2:
                                 print(_("Spouse ref:"), urljoin(state.ROOTURL, sref[s]))
                         except:
-                            sref.append("")
+                            sref[s] = ""
 
-                self.spouseref.append(urljoin(state.ROOTURL, sref[s]))
+                # An empty href means Geneanet shows this spouse without a
+                # clickable profile (private/hidden individual) - keep an
+                # empty ref rather than fabricating a link to the site root.
+                self.spouseref.append(urljoin(state.ROOTURL, sref[s]) if sref[s] else "")
 
                 try:
                     marriage.append(str(spouse.xpath('em/text()')[0]))
@@ -314,6 +323,11 @@ class GPerson(GBase):
                 cnum = 0
                 clist = []
                 for c in spouse.xpath('ul/li'):
+                    # Reset for each child - a private/hidden child has no
+                    # <a> at all, and must not silently reuse the previous
+                    # child's name/ref (or leave cref undefined on the very
+                    # first child of the union).
+                    cname, cref = "", None
                     for a in c.xpath('a'):
                         sosa = a.find('img')
                         if sosa is None:
@@ -342,7 +356,12 @@ class GPerson(GBase):
             for p in parents:
                 if state.verbosity >= 3:
                     print(p.xpath('text()'))
-                if p.xpath('text()')[0] == '\n':
+                texts = p.xpath('text()')
+                if texts and texts[0] == '\n':
+                    # Reset for each parent entry - a private/hidden parent
+                    # has no <a> at all, and must not silently reuse the
+                    # previous parent's name/ref.
+                    pname, pref = "", ""
                     for a in p.xpath('a'):
                         sosa = a.find('img')
                         if sosa is None:
@@ -358,9 +377,19 @@ class GPerson(GBase):
                             if pname and pref:
                                 break
 
-                    if state.verbosity >= 1:
-                        print(_("Parent name: %s (%s)") % (pname, urljoin(state.ROOTURL, pref)))
-                    prefl.append(urljoin(state.ROOTURL, str(pref)))
+                    if pref:
+                        ref = urljoin(state.ROOTURL, str(pref))
+                        if state.verbosity >= 1:
+                            print(_("Parent name: %s (%s)") % (pname, ref))
+                        prefl.append(ref)
+                    else:
+                        # Geneanet shows this parent without a clickable
+                        # profile (private/hidden individual) - keep the
+                        # slot empty rather than fabricating a link to the
+                        # site root.
+                        if state.verbosity >= 1:
+                            print(_("Parent has no navigable link (private profile)"))
+                        prefl.append("")
             try:
                 self.fref = prefl[0]
             except:
@@ -607,6 +636,15 @@ class GPerson(GBase):
         i = 0
         ret = []
         while i < len(self.spouseref):
+            if not self.spouseref[i]:
+                # Geneanet shows this spouse without a clickable profile
+                # (private/hidden individual) - nothing we can fetch or
+                # attach, so skip it instead of creating a nameless person.
+                if state.verbosity >= 1:
+                    print(_("No navigable link for spouse %d of ") % i +
+                          self.firstname + " " + self.lastname + _(" (private profile), skipping"))
+                i = i + 1
+                continue
             spouse = None
             for s in self.spouse:
                 if s.url == self.spouseref[i]:
@@ -649,7 +687,12 @@ class GPerson(GBase):
             loop = True
             level = level + 1
 
-            if self.father:
+            # self.father/self.mother are always non-None placeholders (set
+            # in from_gramps), so guard on fref/mref - not on the object -
+            # to know whether Geneanet actually gave us a navigable parent.
+            # Fetching an empty ref creates a nameless "ghost" person that
+            # still gets attached to the family below.
+            if self.fref:
                 geneanet_to_gramps(self.father, level, self.father.gid, self.fref)
                 if self.mother:
                     self.mother.spouse.append(self.father)
@@ -662,8 +705,10 @@ class GPerson(GBase):
                 if state.verbosity >= 2:
                     print(_("=> End of recursion on the parents of ") +
                           self.father.firstname + " " + self.father.lastname)
+            elif state.verbosity >= 1:
+                print(_("No navigable link for the father (private profile), skipping"))
 
-            if self.mother:
+            if self.mref:
                 geneanet_to_gramps(self.mother, level, self.mother.gid, self.mref)
                 if self.father:
                     self.father.spouse.append(self.mother)
@@ -675,6 +720,8 @@ class GPerson(GBase):
                 if state.verbosity >= 2:
                     print(_("=> End of recursing on the mother of ") +
                           self.mother.firstname + " " + self.mother.lastname)
+            elif state.verbosity >= 1:
+                print(_("No navigable link for the mother (private profile), skipping"))
 
             if state.verbosity >= 2:
                 print(_("=> Initialize Parents Family of ") + self.firstname + " " + self.lastname)

@@ -243,6 +243,16 @@ class GFamily(GBase):
                 return
 
             for c in self.g_childref:
+                if not c:
+                    # Geneanet shows this child without a clickable profile
+                    # (private/hidden individual) - nothing we can fetch or
+                    # attach, so skip it instead of creating a nameless
+                    # person.
+                    if state.verbosity >= 1:
+                        print(_("No navigable link for a child of ") + self.father.firstname +
+                              " " + self.father.lastname + " - " + self.mother.firstname +
+                              " " + self.mother.lastname + _(" (private profile), skipping"))
+                    continue
                 child = geneanet_to_gramps(None, level - 1, None, c)
                 if state.verbosity >= 2:
                     print(_("=> Recursion on the child of ") + self.father.lastname + ' - ' +
