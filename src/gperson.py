@@ -3,12 +3,12 @@ import re
 import time
 import random
 import traceback
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse, parse_qs
 
 import src.state as state
 from src.state import _
 from src.gbase import GBase
-from src.date_utils import format_ca, format_year, convert_date
+from src.date_utils import format_ca, format_year, convert_date, geneanet_strings
 
 from lxml import html
 from gramps.gen.db import DbTxn
@@ -133,6 +133,12 @@ class GPerson(GBase):
 
             self.url = purl
 
+            # The page's language is set by its own "lang=" URL parameter,
+            # independent from the Gramps UI locale (gettext _()) - do not
+            # conflate the two or keyword matching silently finds nothing.
+            page_lang = parse_qs(urlparse(purl).query).get('lang', ['fr'])[0]
+            strings = geneanet_strings(page_lang)
+
             # Wait after a Geneanet request to be fair with the site
             # between 2 and 7 seconds
             time.sleep(random.randint(2, 7))
@@ -165,7 +171,7 @@ class GPerson(GBase):
             if state.verbosity >= 2:
                 print(_("Sex:"), self.g_sex)
             try:
-                sstring = '//li[contains(., "' + _("Born") + '")]/text()'
+                sstring = '//li[contains(., "' + strings['born'] + '")]/text()'
                 if state.verbosity >= 3:
                     print("sstring: " + sstring)
                 birth = tree.xpath(sstring)
@@ -174,7 +180,7 @@ class GPerson(GBase):
             if state.verbosity >= 3:
                 print(_("birth") + ": %s" % (birth))
             try:
-                sstring = '//li[contains(., "' + _("Deceased") + '")]/text()'
+                sstring = '//li[contains(., "' + strings['deceased'] + '")]/text()'
                 if state.verbosity >= 3:
                     print("sstring: " + sstring)
                 death = tree.xpath(sstring)
@@ -193,10 +199,10 @@ class GPerson(GBase):
             except:
                 spouses = []
             try:
-                ld = convert_date(birth[0].split('-')[0].split()[1:])
+                ld = convert_date(birth[0].split('-')[0].split()[1:], page_lang)
                 if state.verbosity >= 2:
                     print(_("Birth:"), ld)
-                self.g_birthdate = format_ca(ld)
+                self.g_birthdate = format_ca(ld, page_lang)
                 print("Birth after post:", ld)
             except:
                 print("Error in birt date process")
@@ -220,10 +226,10 @@ class GPerson(GBase):
             except:
                 self.g_birthplacecode = None
             try:
-                ld = convert_date(death[0].split('-')[0].split()[1:])
+                ld = convert_date(death[0].split('-')[0].split()[1:], page_lang)
                 if state.verbosity >= 2:
                     print(_("Death:"), ld)
-                self.g_deathdate = format_ca(ld)
+                self.g_deathdate = format_ca(ld, page_lang)
             except:
                 self.g_deathdate = None
             try:
@@ -273,10 +279,10 @@ class GPerson(GBase):
                 except:
                     marriage.append(None)
                 try:
-                    ld = convert_date(marriage[s].split(',')[0].split()[1:])
+                    ld = convert_date(marriage[s].split(',')[0].split()[1:], page_lang)
                     if state.verbosity >= 2:
                         print(_("Married:"), ld)
-                    self.marriagedate.append(format_ca(ld))
+                    self.marriagedate.append(format_ca(ld, page_lang))
                 except:
                     self.marriagedate.append(None)
                 try:

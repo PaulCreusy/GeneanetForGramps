@@ -15,10 +15,23 @@ _MONTHS = {
 import src.state as state
 from src.state import _
 
+# Geneanet page keywords, keyed by the page's own "lang=" URL parameter.
+# These must NOT be derived from Gramps' UI locale (gettext _()): the page
+# being scraped and the Gramps interface can be in two different languages,
+# and matching against the wrong one silently finds nothing.
+GENEANET_STRINGS = {
+    'fr': {'born': 'Né', 'deceased': 'Décédé', 'about': 'vers', 'before': 'avant', 'after': 'après', 'in': 'en'},
+    'en': {'born': 'Born', 'deceased': 'Deceased', 'about': 'about', 'before': 'before', 'after': 'after', 'in': 'in'},
+}
 
-def format_ca(date):
-    if date[0:2] == "ca":
-        date = _("about") + date[2:]
+
+def geneanet_strings(lang):
+    return GENEANET_STRINGS.get(lang, GENEANET_STRINGS['fr'])
+
+
+def format_ca(date, lang='fr'):
+    if date and date[0:2] == "ca":
+        date = geneanet_strings(lang)['about'] + date[2:]
     return date
 
 
@@ -48,7 +61,8 @@ def format_noniso(date_tuple):
     return (format_iso(year, month, day))
 
 
-def convert_date(datetab):
+def convert_date(datetab, lang='fr'):
+    strings = geneanet_strings(lang)
     if state.verbosity >= 3:
         print(_("datetab received:"), datetab)
     if len(datetab) == 0:
@@ -59,8 +73,8 @@ def convert_date(datetab):
             return datetab[2][0:4]
         elif datetab[1].isnumeric():
             return datetab[1][0:4]
-    if (datetab[0][0:2] == _("about")[0:2] or datetab[0][0:2] == _("after")[0:2]
-            or datetab[0][0:2] == _("before")[0:2]) and len(datetab) == 2:
+    if (datetab[0][0:2] == strings['about'][0:2] or datetab[0][0:2] == strings['after'][0:2]
+            or datetab[0][0:2] == strings['before'][0:2]) and len(datetab) == 2:
         return datetab[0] + " " + datetab[1][0:4]
     if datetab[0] == 'le':
         idx = 1
