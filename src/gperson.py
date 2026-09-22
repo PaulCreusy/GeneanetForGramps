@@ -9,6 +9,7 @@ import src.state as state
 from src.state import _
 from src.gbase import GBase
 from src.date_utils import format_ca, format_year, convert_date, geneanet_strings
+from src.exceptions import GeneanetAccessError
 
 from lxml import html
 from gramps.gen.db import DbTxn
@@ -104,13 +105,16 @@ class GPerson(GBase):
                 time.sleep(poll_interval)
                 elapsed += poll_interval
             else:
-                print(_("Cloudflare challenge was not resolved within the timeout."))
+                raise GeneanetAccessError(
+                    _("Cloudflare challenge was not resolved within the timeout for %s.") % purl)
 
             # Detect connexion/login redirect (includes view_limit_redirect) and auto-login
             if 'connexion' in driver.current_url or 'login' in driver.current_url:
                 print(_("Geneanet login required for %s.") % purl)
                 if not self._do_login(driver, purl):
-                    return ()
+                    raise GeneanetAccessError(
+                        _("Geneanet requires logging in (possibly behind a CAPTCHA) for %s, "
+                          "and auto-login could not complete it.") % purl)
 
             if state.verbosity >= 3:
                 print(_("URL:"), driver.current_url)
@@ -119,6 +123,10 @@ class GPerson(GBase):
             page_content = driver.page_source
             with open("/tmp/geneanet-selenium.html", "w", encoding="utf-8") as f:
                 f.write(page_content)
+        except GeneanetAccessError:
+            # Always fatal: never continue parsing a page we could not
+            # legitimately reach, as that produces phantom, nameless persons.
+            raise
         except Exception as e:
             print(_("We failed to reach the server at"), purl)
             print("Exception:", repr(e))

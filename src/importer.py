@@ -4,6 +4,7 @@ import sys
 import src.state as state
 from src.state import _
 from src.gperson import GPerson
+from src.exceptions import GeneanetAccessError
 from gramps.gui.dialog import ErrorDialog
 
 
@@ -68,22 +69,30 @@ def geneanet_to_gramps(p, level, gid, url):
 
 def g2gaction(gid, purl):
     try:
-        gp = geneanet_to_gramps(None, 0, gid, purl)
+        try:
+            gp = geneanet_to_gramps(None, 0, gid, purl)
 
-        if gp is not None:
-            if state.ascendants:
-                gp.recurse_parents(0)
+            if gp is not None:
+                if state.ascendants:
+                    gp.recurse_parents(0)
 
-            fam = []
-            if state.spouses:
-                fam = gp.add_spouses(0)
+                fam = []
+                if state.spouses:
+                    fam = gp.add_spouses(0)
+                else:
+                    # TODO: If we don't ask for spouses, we won't get children at all
+                    pass
+
+                if state.descendants:
+                    for f in fam:
+                        f.recurse_children(0)
+        except GeneanetAccessError as e:
+            detail = str(e)
+            print(detail)
+            if state.GUIMODE:
+                ErrorDialog(_("Geneanet import stopped"), detail)
             else:
-                # TODO: If we don't ask for spouses, we won't get children at all
-                pass
-
-            if state.descendants:
-                for f in fam:
-                    f.recurse_children(0)
+                print(_("Geneanet import stopped."))
     finally:
         if state.selenium_driver is not None:
             try:
