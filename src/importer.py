@@ -4,6 +4,26 @@ import sys
 import src.state as state
 from src.state import _
 from src.gperson import GPerson
+from gramps.gui.dialog import ErrorDialog
+
+
+def _report_conflict(title, detail):
+    """Report a blocking conflict: stop the CLI, or show a popup in GUI mode."""
+    print(detail)
+    if not state.GUIMODE:
+        state.db.close()
+        sys.exit(_("Do not continue without force"))
+    else:
+        ErrorDialog(title, detail + "\n\n" + _("Please fix the person in Gramps, or enable Force Import to overwrite it."))
+
+
+def _dates_conflict(gramps_date, geneanet_date):
+    """A conflict only exists when BOTH sides have a value and they differ.
+    An empty value on either side is not a conflict: it is simply filled in
+    from Geneanet (or left as-is in Gramps) by the smart-copy logic."""
+    if not gramps_date or not geneanet_date:
+        return False
+    return gramps_date != geneanet_date
 
 
 def geneanet_to_gramps(p, level, gid, url):
@@ -14,13 +34,10 @@ def geneanet_to_gramps(p, level, gid, url):
 
     if gid is not None:
         if (p.firstname != p.g_firstname or p.lastname != p.g_lastname) and not state.force:
-            print(_("Gramps   person: %s %s") % (p.firstname, p.lastname))
-            print(_("Geneanet person: %s %s") % (p.g_firstname, p.g_lastname))
-            if not state.GUIMODE:
-                state.db.close()
-                sys.exit(_("Do not continue without force"))
-            else:
-                return None
+            detail = (_("Gramps   person: %s %s") % (p.firstname, p.lastname) + "\n" +
+                      _("Geneanet person: %s %s") % (p.g_firstname, p.g_lastname))
+            _report_conflict(_("Geneanet import: name conflict"), detail)
+            return None
 
         # Fix potential empty dates
         if p.g_birthdate == "":
@@ -32,17 +49,14 @@ def geneanet_to_gramps(p, level, gid, url):
         if p.deathdate == "":
             p.deathdate = None
 
-        if p.birthdate == p.g_birthdate or p.deathdate == p.g_deathdate or state.force:
-            pass
-        else:
-            print(_("Gramps   person birth/death: %s / %s") % (p.birthdate, p.deathdate))
-            print(_("Geneanet person birth/death: %s / %s") % (p.g_birthdate, p.g_deathdate))
-            if not state.GUIMODE:
-                state.db.close()
-                sys.exit(_("Do not continue without force"))
-            else:
-                print(_("Please fix the person in gramps"))
-                return None
+        birth_conflict = _dates_conflict(p.birthdate, p.g_birthdate)
+        death_conflict = _dates_conflict(p.deathdate, p.g_deathdate)
+
+        if (birth_conflict or death_conflict) and not state.force:
+            detail = (_("Gramps   person birth/death: %s / %s") % (p.birthdate, p.deathdate) + "\n" +
+                      _("Geneanet person birth/death: %s / %s") % (p.g_birthdate, p.g_deathdate))
+            _report_conflict(_("Geneanet import: birth/death conflict"), detail)
+            return None
 
     p.to_gramps()
     if state.GUIMODE:
@@ -53,21 +67,29 @@ def geneanet_to_gramps(p, level, gid, url):
 
 
 def g2gaction(gid, purl):
-    gp = geneanet_to_gramps(None, 0, gid, purl)
+    try:
+        gp = geneanet_to_gramps(None, 0, gid, purl)
 
-    if gp is not None:
-        if state.ascendants:
-            gp.recurse_parents(0)
+        if gp is not None:
+            if state.ascendants:
+                gp.recurse_parents(0)
 
-        fam = []
-        if state.spouses:
-            fam = gp.add_spouses(0)
-        else:
-            # TODO: If we don't ask for spouses, we won't get children at all
-            pass
+            fam = []
+            if state.spouses:
+                fam = gp.add_spouses(0)
+            else:
+                # TODO: If we don't ask for spouses, we won't get children at all
+                pass
 
-        if state.descendants:
-            for f in fam:
-                f.recurse_children(0)
-    if state.GUIMODE:
-        state.progress.close()
+            if state.descendants:
+                for f in fam:
+                    f.recurse_children(0)
+    finally:
+        if state.selenium_driver is not None:
+            try:
+                state.selenium_driver.quit()
+            except Exception:
+                pass
+            state.selenium_driver = None
+        if state.GUIMODE:
+            state.progress.close()
