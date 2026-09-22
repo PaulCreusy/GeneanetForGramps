@@ -12,6 +12,7 @@ import sys
 import re
 import argparse
 from datetime import datetime
+from urllib.parse import urljoin
 from lxml import html
 
 ROOTURL = 'https://gw.geneanet.org/'
@@ -192,7 +193,7 @@ def parse_page(tree, lang='fr'):
                 pname = a.xpath('text()')[0].title() if a.xpath('text()') else ""
                 pref  = a.xpath('attribute::href')[0] if a.xpath('attribute::href') else ""
                 if pname and pref:
-                    parent_refs.append({'name': pname, 'ref': ROOTURL + pref})
+                    parent_refs.append({'name': pname, 'ref': urljoin(ROOTURL, pref)})
                     break
         fields['parents'] = parent_refs
     except Exception as e:
@@ -210,7 +211,7 @@ def parse_page(tree, lang='fr'):
                 if a.find('img') is not None:
                     continue
                 sp['name'] = str(a.xpath('text()')[0]).title() if a.xpath('text()') else ""
-                sp['ref']  = ROOTURL + str(a.xpath('attribute::href')[0]) \
+                sp['ref']  = urljoin(ROOTURL, str(a.xpath('attribute::href')[0])) \
                              if a.xpath('attribute::href') else ""
             em = sp_node.xpath('em/text()')
             if em:
@@ -229,7 +230,7 @@ def parse_page(tree, lang='fr'):
                     if a.find('img') is not None:
                         continue
                     cname = c_node.xpath('a/text()')[0].title() if c_node.xpath('a/text()') else ""
-                    cref  = ROOTURL + str(a.xpath('attribute::href')[0]) \
+                    cref  = urljoin(ROOTURL, str(a.xpath('attribute::href')[0])) \
                             if a.xpath('attribute::href') else None
                     sp['children'].append({'name': cname, 'ref': cref})
             spouses.append(sp)

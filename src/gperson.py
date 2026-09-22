@@ -3,6 +3,7 @@ import re
 import time
 import random
 import traceback
+from urllib.parse import urljoin
 
 import src.state as state
 from src.state import _
@@ -261,11 +262,11 @@ class GPerson(GBase):
                         try:
                             sref.append(str(a.xpath('attribute::href')[0]))
                             if state.verbosity >= 2:
-                                print(_("Spouse ref:"), state.ROOTURL + sref[s])
+                                print(_("Spouse ref:"), urljoin(state.ROOTURL, sref[s]))
                         except:
                             sref.append("")
 
-                self.spouseref.append(state.ROOTURL + sref[s])
+                self.spouseref.append(urljoin(state.ROOTURL, sref[s]))
 
                 try:
                     marriage.append(str(spouse.xpath('em/text()')[0]))
@@ -309,7 +310,7 @@ class GPerson(GBase):
                             except:
                                 cname = ""
                             try:
-                                cref = state.ROOTURL + str(a.xpath('attribute::href')[0])
+                                cref = urljoin(state.ROOTURL, str(a.xpath('attribute::href')[0]))
                                 if state.verbosity >= 2:
                                     print(_("Child %d ref: %s") % (cnum, cref))
                             except:
@@ -344,8 +345,8 @@ class GPerson(GBase):
                                 break
 
                     if state.verbosity >= 1:
-                        print(_("Parent name: %s (%s)") % (pname, state.ROOTURL + pref))
-                    prefl.append(state.ROOTURL + str(pref))
+                        print(_("Parent name: %s (%s)") % (pname, urljoin(state.ROOTURL, pref)))
+                    prefl.append(urljoin(state.ROOTURL, str(pref)))
             try:
                 self.fref = prefl[0]
             except:
