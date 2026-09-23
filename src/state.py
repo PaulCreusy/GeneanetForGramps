@@ -12,6 +12,23 @@ _ = _trans.gettext
 
 LOG = logging.getLogger("GeneanetForGramps")
 
+# Maps the 0-3 verbosity slider (CLI -v count / GUI "Verbosity" option) onto
+# standard logging levels. 2 and 3 both map to DEBUG: the extra granularity
+# the old ad-hoc "if verbosity >= 3" checks had is not worth a custom level.
+_VERBOSITY_TO_LEVEL = {0: logging.WARNING, 1: logging.INFO}
+
+
+def configure_logging():
+    """(Re)apply the current verbosity to the LOG logger. Safe to call more
+    than once - it will not stack duplicate handlers."""
+    level = _VERBOSITY_TO_LEVEL.get(verbosity, logging.DEBUG)
+    LOG.setLevel(level)
+    if not LOG.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        LOG.addHandler(handler)
+
+
 TIMEOUT = 5
 ROOTURL = 'https://gw.geneanet.org/'
 WIKI_HELP_PAGE = '%s_-_Tools' % URL_MANUAL_PAGE
@@ -20,7 +37,7 @@ WIKI_HELP_SEC = _('manual|GeneanetForGramps')
 # Mutable runtime state
 db = None
 gname = None
-verbosity = 5
+verbosity = 0
 force = False
 ascendants = False
 descendants = False

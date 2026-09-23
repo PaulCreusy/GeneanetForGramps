@@ -2,25 +2,25 @@
 import re
 import time
 import random
-import traceback
 from urllib.parse import urljoin, urlparse, parse_qs
 
 import src.state as state
-from src.state import _
+from src.state import _, LOG
 from src.gbase import GBase
 from src.date_utils import format_ca, format_year, convert_date, geneanet_strings
 from src.exceptions import GeneanetAccessError
 
 from lxml import html
+from lxml.etree import ParserError, XMLSyntaxError, XPathEvalError
 from gramps.gen.db import DbTxn
+from gramps.gen.errors import HandleError
 from gramps.gen.lib import Person, Name, NameType, EventType, Url, UrlType
 
 
 class GPerson(GBase):
 
     def __init__(self, level):
-        if state.verbosity >= 3:
-            print(_("Initialize Person at level %d") % (level))
+        LOG.debug(_("Initialize Person at level %d"), level)
         self.level = level
         # Gramps
         self.firstname = ""
@@ -60,8 +60,7 @@ class GPerson(GBase):
         self.childref = []
 
     def smartcopy(self):
-        if state.verbosity >= 2:
-            print(_("Smart Copying Person"), self.gid)
+        LOG.debug(_("Smart Copying Person %s"), self.gid)
         self._smartcopy("firstname")
         self._smartcopy("lastname")
         self._smartcopy("sex")
@@ -80,14 +79,11 @@ class GPerson(GBase):
 
         lxml can return _ElementUnicodeResult instead of str so cast
         '''
-        if state.verbosity >= 3:
-            print(_("Purl:"), purl)
+        LOG.debug(_("Purl: %s"), purl)
         if not purl:
             return ()
         try:
-            if state.verbosity >= 1:
-                print("-----------------------------------------------------------")
-                print(_("Page considered:"), purl)
+            LOG.info(_("Page considered: %s"), purl)
             driver = self.get_selenium_driver()
 
             driver.get(purl)
@@ -119,7 +115,7 @@ class GPerson(GBase):
 
                 if ('connexion' in current_url or 'login' in current_url) and not login_attempted:
                     login_attempted = True
-                    print(_("Geneanet login required for %s.") % purl)
+                    LOG.info(_("Geneanet login required for %s."), purl)
                     if not self._do_login(driver, purl):
                         raise GeneanetAccessError(
                             _("Geneanet requires logging in (possibly behind a CAPTCHA) for %s, "
@@ -127,7 +123,7 @@ class GPerson(GBase):
                     continue
 
                 if not notice_shown:
-                    print(_("Cloudflare verification detected. Please complete the challenge in the browser window."))
+                    LOG.warning(_("Cloudflare verification detected. Please complete the challenge in the browser window."))
                     notice_shown = True
 
                 if elapsed >= total_timeout:
@@ -138,9 +134,8 @@ class GPerson(GBase):
                 time.sleep(poll_interval)
                 elapsed += poll_interval
 
-            if state.verbosity >= 3:
-                print(_("URL:"), driver.current_url)
-                print(_("Title:"), driver.title)
+            LOG.debug(_("URL: %s"), driver.current_url)
+            LOG.debug(_("Title: %s"), driver.title)
 
             page_content = driver.page_source
             with open("/tmp/geneanet-selenium.html", "w", encoding="utf-8") as f:
@@ -149,17 +144,15 @@ class GPerson(GBase):
             # Always fatal: never continue parsing a page we could not
             # legitimately reach, as that produces phantom, nameless persons.
             raise
-        except Exception as e:
-            print(_("We failed to reach the server at"), purl)
-            print("Exception:", repr(e))
-            traceback.print_exc()
+        except Exception:
+            LOG.error(_("We failed to reach the server at %s"), purl, exc_info=True)
             if state.stop_on_error:
                 raise
         else:
             try:
                 tree = html.fromstring(page_content)
-            except:
-                print(_("Unable to perform HTML analysis"))
+            except (ParserError, XMLSyntaxError):
+                LOG.error(_("Unable to perform HTML analysis"))
 
             self.url = purl
 
@@ -181,68 +174,59 @@ class GPerson(GBase):
                     self.g_sex = 'M'
                 elif sex[0][0] == 'F':
                     self.g_sex = 'F'
-            except:
+            except IndexError:
                 self.g_sex = 'U'
             try:
                 name = tree.xpath('//span[@class="gw-individual-info-name-firstname"]//a/text()')
                 self.g_firstname = " ".join(str(name[0]).split()).title()
 
                 if self.g_firstname == "":
-                    print("Name not detected, html has changed")
+                    LOG.warning(_("Name not detected, html has changed"))
 
                 name = tree.xpath('//span[@class="gw-individual-info-name-lastname"]//a/text()')
                 self.g_lastname = " ".join(str(name[0]).split()).title()
-            except:
-                print("Name not detected")
+            except IndexError:
+                LOG.warning(_("Name not detected"))
                 self.g_firstname = ""
                 self.g_lastname = ""
-            if state.verbosity >= 1:
-                print(_("==> GENEANET Name (L%d): %s %s") % (self.level, self.g_firstname, self.g_lastname))
-            if state.verbosity >= 2:
-                print(_("Sex:"), self.g_sex)
+            LOG.info(_("==> GENEANET Name (L%d): %s %s"), self.level, self.g_firstname, self.g_lastname)
+            LOG.debug(_("Sex: %s"), self.g_sex)
             try:
                 sstring = '//li[contains(., "' + strings['born'] + '")]/text()'
-                if state.verbosity >= 3:
-                    print("sstring: " + sstring)
+                LOG.debug("sstring: %s", sstring)
                 birth = tree.xpath(sstring)
-            except:
+            except XPathEvalError:
                 birth = [""]
-            if state.verbosity >= 3:
-                print(_("birth") + ": %s" % (birth))
+            LOG.debug(_("birth: %s"), birth)
             try:
                 sstring = '//li[contains(., "' + strings['deceased'] + '")]/text()'
-                if state.verbosity >= 3:
-                    print("sstring: " + sstring)
+                LOG.debug("sstring: %s", sstring)
                 death = tree.xpath(sstring)
-            except:
+            except XPathEvalError:
                 death = [""]
-            if state.verbosity >= 3:
-                print(_("death") + ": %s" % (death))
+            LOG.debug(_("death: %s"), death)
             try:
                 # sometime parents are using circle, sometimes disc !
                 parents = tree.xpath(
                     '//ul[not(descendant-or-self::*[@class="fiche_union"])]//li[@style="vertical-align:middle;list-style-type:disc" or @style="vertical-align:middle;list-style-type:circle"]')
-            except:
+            except XPathEvalError:
                 parents = []
             try:
                 spouses = tree.xpath('//ul[@class="fiche_union"]/li')
-            except:
+            except XPathEvalError:
                 spouses = []
             try:
                 ld = convert_date(birth[0].split('-')[0].split()[1:], page_lang)
-                if state.verbosity >= 2:
-                    print(_("Birth:"), ld)
+                LOG.debug(_("Birth: %s"), ld)
                 self.g_birthdate = format_ca(ld, page_lang)
-                print("Birth after post:", ld)
-            except:
-                print("Error in birt date process")
+            except (IndexError, ValueError, AttributeError):
+                LOG.debug(_("Error in birth date process"), exc_info=True)
                 self.g_birthdate = None
             try:
                 self.g_birthplace = str(
                     ' '.join(birth[0].split('-')[1:]).split(',')[0].strip()).title()
-                if state.verbosity >= 2:
-                    print(_("Birth place:"), self.g_birthplace)
-            except:
+                LOG.debug(_("Birth place: %s"), self.g_birthplace)
+            except (IndexError, AttributeError):
                 self.g_birthplace = None
             try:
                 self.g_birthplacecode = str(
@@ -251,23 +235,20 @@ class GPerson(GBase):
                 if not match:
                     self.g_birthplacecode = None
                 else:
-                    if state.verbosity >= 2:
-                        print(_("Birth place code:"), self.g_birthplacecode)
-            except:
+                    LOG.debug(_("Birth place code: %s"), self.g_birthplacecode)
+            except (IndexError, AttributeError):
                 self.g_birthplacecode = None
             try:
                 ld = convert_date(death[0].split('-')[0].split()[1:], page_lang)
-                if state.verbosity >= 2:
-                    print(_("Death:"), ld)
+                LOG.debug(_("Death: %s"), ld)
                 self.g_deathdate = format_ca(ld, page_lang)
-            except:
+            except (IndexError, ValueError, AttributeError):
                 self.g_deathdate = None
             try:
                 self.g_deathplace = str(
                     ' '.join(death[0].split('-')[1:]).split(',')[0]).strip().title()
-                if state.verbosity >= 2:
-                    print(_("Death place:"), self.g_deathplace)
-            except:
+                LOG.debug(_("Death place: %s"), self.g_deathplace)
+            except (IndexError, AttributeError):
                 self.g_deathplace = None
             try:
                 self.g_deathplacecode = str(
@@ -276,9 +257,8 @@ class GPerson(GBase):
                 if not match:
                     self.g_deathplacecode = None
                 else:
-                    if state.verbosity >= 2:
-                        print(_("Death place code:"), self.g_deathplacecode)
-            except:
+                    LOG.debug(_("Death place code: %s"), self.g_deathplacecode)
+            except (IndexError, AttributeError):
                 self.g_deathplacecode = None
 
             s = 0
@@ -297,15 +277,13 @@ class GPerson(GBase):
                     if sosa is None:
                         try:
                             sname[s] = str(a.xpath('text()')[0]).title()
-                            if state.verbosity >= 2:
-                                print(_("Spouse name:"), sname[s])
-                        except:
+                            LOG.debug(_("Spouse name: %s"), sname[s])
+                        except IndexError:
                             sname[s] = ""
                         try:
                             sref[s] = str(a.xpath('attribute::href')[0])
-                            if state.verbosity >= 2:
-                                print(_("Spouse ref:"), urljoin(state.ROOTURL, sref[s]))
-                        except:
+                            LOG.debug(_("Spouse ref: %s"), urljoin(state.ROOTURL, sref[s]))
+                        except IndexError:
                             sref[s] = ""
 
                 # An empty href means Geneanet shows this spouse without a
@@ -315,20 +293,18 @@ class GPerson(GBase):
 
                 try:
                     marriage.append(str(spouse.xpath('em/text()')[0]))
-                except:
+                except IndexError:
                     marriage.append(None)
                 try:
                     ld = convert_date(marriage[s].split(',')[0].split()[1:], page_lang)
-                    if state.verbosity >= 2:
-                        print(_("Married:"), ld)
+                    LOG.debug(_("Married: %s"), ld)
                     self.marriagedate.append(format_ca(ld, page_lang))
-                except:
+                except (AttributeError, IndexError, ValueError):
                     self.marriagedate.append(None)
                 try:
                     self.marriageplace.append(str(marriage[s].split(',')[1][1:]).title())
-                    if state.verbosity >= 2:
-                        print(_("Married place:"), self.marriageplace[s])
-                except:
+                    LOG.debug(_("Married place: %s"), self.marriageplace[s])
+                except (AttributeError, IndexError):
                     self.marriageplace.append(None)
                 try:
                     marriageplacecode = str(marriage[s].split(',')[2][1:])
@@ -336,10 +312,9 @@ class GPerson(GBase):
                     if not match:
                         self.marriageplacecode.append(None)
                     else:
-                        if state.verbosity >= 2:
-                            print(_("Married place code:"), self.marriageplacecode[s])
+                        LOG.debug(_("Married place code: %s"), marriageplacecode)
                         self.marriageplacecode.append(marriageplacecode)
-                except:
+                except (AttributeError, IndexError):
                     self.marriageplacecode.append(None)
 
                 cnum = 0
@@ -355,15 +330,13 @@ class GPerson(GBase):
                         if sosa is None:
                             try:
                                 cname = c.xpath('a/text()')[0].title()
-                                if state.verbosity >= 2:
-                                    print(_("Child %d name: %s") % (cnum, cname))
-                            except:
+                                LOG.debug(_("Child %d name: %s"), cnum, cname)
+                            except IndexError:
                                 cname = ""
                             try:
                                 cref = urljoin(state.ROOTURL, str(a.xpath('attribute::href')[0]))
-                                if state.verbosity >= 2:
-                                    print(_("Child %d ref: %s") % (cnum, cref))
-                            except:
+                                LOG.debug(_("Child %d ref: %s"), cnum, cref)
+                            except IndexError:
                                 cref = None
 
                     clist.append(cref)
@@ -376,8 +349,7 @@ class GPerson(GBase):
             self.mref = ""
             prefl = []
             for p in parents:
-                if state.verbosity >= 3:
-                    print(p.xpath('text()'))
+                LOG.debug("%s", p.xpath('text()'))
                 texts = p.xpath('text()')
                 if texts and texts[0] == '\n':
                     # Reset for each parent entry - a private/hidden parent
@@ -389,11 +361,11 @@ class GPerson(GBase):
                         if sosa is None:
                             try:
                                 pname = a.xpath('text()')[0].title()
-                            except:
+                            except IndexError:
                                 pname = ""
                             try:
                                 pref = a.xpath('attribute::href')[0]
-                            except:
+                            except IndexError:
                                 pref = ""
                             # only consider first valid link instead of overwriting with eg "seigneur de XYZ" or "propriétaire à XYZ":
                             if pname and pref:
@@ -401,27 +373,23 @@ class GPerson(GBase):
 
                     if pref:
                         ref = urljoin(state.ROOTURL, str(pref))
-                        if state.verbosity >= 1:
-                            print(_("Parent name: %s (%s)") % (pname, ref))
+                        LOG.info(_("Parent name: %s (%s)"), pname, ref)
                         prefl.append(ref)
                     else:
                         # Geneanet shows this parent without a clickable
                         # profile (private/hidden individual) - keep the
                         # slot empty rather than fabricating a link to the
                         # site root.
-                        if state.verbosity >= 1:
-                            print(_("Parent has no navigable link (private profile)"))
+                        LOG.info(_("Parent has no navigable link (private profile)"))
                         prefl.append("")
             try:
                 self.fref = prefl[0]
-            except:
+            except IndexError:
                 self.fref = ""
             try:
                 self.mref = prefl[1]
-            except:
+            except IndexError:
                 self.mref = ""
-            if state.verbosity >= 2:
-                print("-----------------------------------------------------------")
 
     def create_grampsp(self):
         with DbTxn("Geneanet import", state.db) as tran:
@@ -429,9 +397,8 @@ class GPerson(GBase):
             state.db.add_person(grampsp, tran)
             self.gid = grampsp.gramps_id
             self.grampsp = grampsp
-            if state.verbosity >= 1:
-                print(_("Create new Gramps Person: ") + self.gid +
-                      ' (' + self.g_firstname + ' ' + self.g_lastname + ')')
+            LOG.info(_("Create new Gramps Person: %s (%s %s)"),
+                     self.gid, self.g_firstname, self.g_lastname)
 
     def find_grampsp(self):
         # Fast path: match by the stored Geneanet URL (set by to_gramps) — unambiguous
@@ -442,21 +409,19 @@ class GPerson(GBase):
                     if u.get_path() == self.url:
                         self.grampsp = p
                         self.gid = p.gramps_id
-                        if state.verbosity >= 2:
-                            print(_("Found a Gramps Person by URL: ") + self.g_firstname +
-                                  ' ' + self.g_lastname + " (" + self.gid + ")")
+                        LOG.debug(_("Found a Gramps Person by URL: %s %s (%s)"),
+                                  self.g_firstname, self.g_lastname, self.gid)
                         return
 
         # Fallback: match by name + date
         p = None
         ids = state.db.get_person_gramps_ids()
         for i in ids:
-            if state.verbosity >= 3:
-                print(_("DEBUG: Looking after ") + i)
+            LOG.debug(_("Looking after %s"), i)
             p = state.db.get_person_from_gramps_id(i)
             try:
                 name = p.primary_name.get_name().split(', ')
-            except:
+            except AttributeError:
                 continue
             if len(name) == 0:
                 continue
@@ -470,30 +435,23 @@ class GPerson(GBase):
             bd = format_year(bd)
             dd = self.get_gramps_date(EventType.DEATH)
             dd = format_year(dd)
-            if state.verbosity >= 3:
-                pbd = bd if bd else "None"
-                pdd = dd if dd else "None"
-                g_pbd = self.g_birthdate if self.g_birthdate else "None"
-                g_pdd = self.g_deathdate if self.g_deathdate else "None"
-                print(_("DEBUG: firstname: ") + firstname + _(" vs g_firstname: ") + self.g_firstname)
-                print(_("DEBUG: lastname: ") + lastname + _(" vs g_lastname: ") + self.g_lastname)
-                print(_("DEBUG: bd: ") + pbd + _(" vs g_bd: ") + g_pbd)
-                print(_("DEBUG: dd: ") + pdd + _(" vs g_dd: ") + g_pdd)
+            LOG.debug(_("firstname: %s vs g_firstname: %s"), firstname, self.g_firstname)
+            LOG.debug(_("lastname: %s vs g_lastname: %s"), lastname, self.g_lastname)
+            LOG.debug(_("bd: %s vs g_bd: %s"), bd, self.g_birthdate)
+            LOG.debug(_("dd: %s vs g_dd: %s"), dd, self.g_deathdate)
             if firstname != self.g_firstname or lastname != self.g_lastname:
                 self.grampsp = None
                 continue
             if not bd and not dd and not self.g_birthdate and not self.g_deathdate:
                 # No dates on either side: accept the name match to avoid creating duplicates
                 self.gid = p.gramps_id
-                if state.verbosity >= 2:
-                    print(_("Found a Gramps Person by name (no dates): ") + self.g_firstname +
-                          ' ' + self.g_lastname + " (" + self.gid + ")")
+                LOG.debug(_("Found a Gramps Person by name (no dates): %s %s (%s)"),
+                          self.g_firstname, self.g_lastname, self.gid)
                 break
             if bd == self.g_birthdate or dd == self.g_deathdate:
                 self.gid = p.gramps_id
-                if state.verbosity >= 2:
-                    print(_("Found a Gramps Person: ") + self.g_firstname +
-                          ' ' + self.g_lastname + " (" + self.gid + ")")
+                LOG.debug(_("Found a Gramps Person: %s %s (%s)"),
+                          self.g_firstname, self.g_lastname, self.gid)
                 break
             else:
                 self.grampsp = None
@@ -505,8 +463,7 @@ class GPerson(GBase):
             state.db.disable_signals()
             grampsp = self.grampsp
             if not grampsp:
-                if state.verbosity >= 2:
-                    print(_("ERROR: Unable sync unknown Gramps Person"))
+                LOG.error(_("Unable to sync unknown Gramps Person"))
                 return
 
             if self.sex == 'M':
@@ -546,25 +503,22 @@ class GPerson(GBase):
     def from_gramps(self, gid):
         GENDER = ['F', 'M', 'U']
 
-        if state.verbosity >= 2:
-            print(_("Calling from_gramps with gid: %s") % (gid))
+        LOG.debug(_("Calling from_gramps with gid: %s"), gid)
 
         if not gid and self.gid:
             gid = self.gid
 
-        if state.verbosity >= 3:
-            print(_("Now gid is: %s") % (gid))
+        LOG.debug(_("Now gid is: %s"), gid)
 
         found = None
         try:
             found = state.db.get_person_from_gramps_id(gid)
             self.gid = gid
             self.grampsp = found
-            if state.verbosity >= 2 and self.gid:
-                print(_("Existing Gramps Person: %s") % (self.gid))
-        except:
-            if state.verbosity >= 1:
-                print(_("WARNING: Unable to retrieve id %s from the gramps db %s") % (gid, state.gname))
+            if self.gid:
+                LOG.debug(_("Existing Gramps Person: %s"), self.gid)
+        except HandleError:
+            LOG.warning(_("Unable to retrieve id %s from the gramps db %s"), gid, state.gname)
 
         if not found:
             self.find_grampsp()
@@ -573,46 +527,38 @@ class GPerson(GBase):
 
         if self.grampsp.gender:
             self.sex = GENDER[self.grampsp.gender]
-            if state.verbosity >= 2:
-                print(_("Gender:"), self.sex)
+            LOG.debug(_("Gender: %s"), self.sex)
 
         try:
             name = self.grampsp.primary_name.get_name().split(', ')
-        except:
+        except AttributeError:
             name = [None, None]
 
         if name[0]:
             self.firstname = name[1]
         if name[1]:
             self.lastname = name[0]
-        if state.verbosity >= 2:
-            print(_("===> Gramps Name of %s: %s %s") % (self.gid, self.firstname, self.lastname))
+        LOG.debug(_("===> Gramps Name of %s: %s %s"), self.gid, self.firstname, self.lastname)
 
         try:
             bd = self.get_gramps_date(EventType.BIRTH)
             if bd:
-                if state.verbosity >= 2:
-                    print(_("Birth:"), bd)
+                LOG.debug(_("Birth: %s"), bd)
                 self.birthdate = bd
             else:
-                if state.verbosity >= 2:
-                    print(_("No Birth date"))
-        except:
-            if state.verbosity >= 1:
-                print(_("WARNING: Unable to retrieve birth date for id %s") % (self.gid))
+                LOG.debug(_("No Birth date"))
+        except AttributeError:
+            LOG.warning(_("Unable to retrieve birth date for id %s"), self.gid)
 
         try:
             dd = self.get_gramps_date(EventType.DEATH)
             if dd:
-                if state.verbosity >= 2:
-                    print(_("Death:"), dd)
+                LOG.debug(_("Death: %s"), dd)
                 self.deathdate = dd
             else:
-                if state.verbosity >= 2:
-                    print(_("No Death date"))
-        except:
-            if state.verbosity >= 1:
-                print(_("WARNING: Unable to retrieve death date for id %s") % (self.gid))
+                LOG.debug(_("No Death date"))
+        except AttributeError:
+            LOG.warning(_("Unable to retrieve death date for id %s"), self.gid)
 
         # Deal with the parents now, as they necessarily exist
         self.father = GPerson(self.level + 1)
@@ -620,36 +566,27 @@ class GPerson(GBase):
         try:
             fh = self.grampsp.get_main_parents_family_handle()
             if fh:
-                if state.verbosity >= 3:
-                    print(_("Family:"), fh)
+                LOG.debug(_("Family: %s"), fh)
                 fam = state.db.get_family_from_handle(fh)
                 if fam:
-                    if state.verbosity >= 3:
-                        print(_("Family:"), fam)
-
                     fh = fam.get_father_handle()
                     if fh:
-                        if state.verbosity >= 3:
-                            print(_("Father H:"), fh)
+                        LOG.debug(_("Father H: %s"), fh)
                         father = state.db.get_person_from_handle(fh)
                         if father:
-                            if state.verbosity >= 1:
-                                print(_("Father name:"), father.primary_name.get_name())
+                            LOG.info(_("Father name: %s"), father.primary_name.get_name())
                             self.father.gid = father.gramps_id
 
                     mh = fam.get_mother_handle()
                     if mh:
-                        if state.verbosity >= 3:
-                            print(_("Mother H:"), mh)
+                        LOG.debug(_("Mother H: %s"), mh)
                         mother = state.db.get_person_from_handle(mh)
                         if mother:
-                            if state.verbosity >= 1:
-                                print(_("Mother name:"), mother.primary_name.get_name())
+                            LOG.info(_("Mother name: %s"), mother.primary_name.get_name())
                             self.mother.gid = mother.gramps_id
 
-        except:
-            if state.verbosity >= 1:
-                print(_("NOTE: Unable to retrieve family for id %s") % (self.gid))
+        except (AttributeError, HandleError):
+            LOG.debug(_("Unable to retrieve family for id %s"), self.gid)
 
     def add_spouses(self, level):
         # Local imports to break circular dependencies with gfamily and importer
@@ -662,9 +599,8 @@ class GPerson(GBase):
                 # Geneanet shows this spouse without a clickable profile
                 # (private/hidden individual) - nothing we can fetch or
                 # attach, so skip it instead of creating a nameless person.
-                if state.verbosity >= 1:
-                    print(_("No navigable link for spouse %d of ") % i +
-                          self.firstname + " " + self.lastname + _(" (private profile), skipping"))
+                LOG.info(_("No navigable link for spouse %d of %s %s (private profile), skipping"),
+                         i, self.firstname, self.lastname)
                 i = i + 1
                 continue
             spouse = None
@@ -677,18 +613,16 @@ class GPerson(GBase):
                 if spouse:
                     self.spouse.append(spouse)
                     spouse.spouse.append(self)
-                    if state.verbosity >= 2:
-                        print(_("=> Initialize Family of ") + self.firstname + " " +
-                              self.lastname + " & " + spouse.firstname + " " + spouse.lastname)
+                    LOG.debug(_("=> Initialize Family of %s %s & %s %s"),
+                              self.firstname, self.lastname, spouse.firstname, spouse.lastname)
                 if self.sex == 'M':
                     f = GFamily(self, spouse)
                 elif self.sex == 'F':
                     f = GFamily(spouse, self)
                 else:
-                    if state.verbosity >= 1:
-                        print(_("Unable to Initialize Family of ") +
-                              self.firstname + " " + self.lastname + _(" sex unknown"))
-                        break
+                    LOG.warning(_("Unable to Initialize Family of %s %s: sex unknown"),
+                                self.firstname, self.lastname)
+                    break
 
                 f.from_geneanet()
                 f.from_gramps(f.gid)
@@ -723,34 +657,23 @@ class GPerson(GBase):
                 if self.mother:
                     self.mother.spouse.append(self.father)
 
-                if state.verbosity >= 2:
-                    print(_("=> Recursing on the parents of ") +
-                          self.father.firstname + " " + self.father.lastname)
+                LOG.debug(_("=> Recursing on the parents of %s %s"), self.father.firstname, self.father.lastname)
                 self.father.recurse_parents(level)
-
-                if state.verbosity >= 2:
-                    print(_("=> End of recursion on the parents of ") +
-                          self.father.firstname + " " + self.father.lastname)
-            elif state.verbosity >= 1:
-                print(_("No navigable link for the father (private profile), skipping"))
+                LOG.debug(_("=> End of recursion on the parents of %s %s"), self.father.firstname, self.father.lastname)
+            else:
+                LOG.info(_("No navigable link for the father (private profile), skipping"))
 
             if self.mref:
                 geneanet_to_gramps(self.mother, level, self.mother.gid, self.mref)
                 if self.father:
                     self.father.spouse.append(self.mother)
-                if state.verbosity >= 2:
-                    print(_("=> Recursing on the mother of ") +
-                          self.mother.firstname + " " + self.mother.lastname)
+                LOG.debug(_("=> Recursing on the mother of %s %s"), self.mother.firstname, self.mother.lastname)
                 self.mother.recurse_parents(level)
+                LOG.debug(_("=> End of recursing on the mother of %s %s"), self.mother.firstname, self.mother.lastname)
+            else:
+                LOG.info(_("No navigable link for the mother (private profile), skipping"))
 
-                if state.verbosity >= 2:
-                    print(_("=> End of recursing on the mother of ") +
-                          self.mother.firstname + " " + self.mother.lastname)
-            elif state.verbosity >= 1:
-                print(_("No navigable link for the mother (private profile), skipping"))
-
-            if state.verbosity >= 2:
-                print(_("=> Initialize Parents Family of ") + self.firstname + " " + self.lastname)
+            LOG.debug(_("=> Initialize Parents Family of %s %s"), self.firstname, self.lastname)
             f = GFamily(self.father, self.mother)
             f.from_geneanet()
             f.from_gramps(f.gid)
@@ -792,8 +715,6 @@ class GPerson(GBase):
 
         if not loop:
             if level >= state.LEVEL:
-                if state.verbosity >= 2:
-                    print(_("Stopping exploration as we reached level ") + str(level))
+                LOG.debug(_("Stopping exploration as we reached level %s"), level)
             else:
-                if state.verbosity >= 1:
-                    print(_("Stopping exploration as there are no more parents"))
+                LOG.info(_("Stopping exploration as there are no more parents"))

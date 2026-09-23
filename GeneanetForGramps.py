@@ -60,7 +60,7 @@ def main():
                         help=_("ID of the person to start from in Gramps"))
     parser.add_argument("-f", "--force", default=False,
                         action='store_true', help=_("Force processing"))
-    parser.add_argument("-e", "--stop-on-error", default=True,
+    parser.add_argument("-e", "--stop-on-error", default=False,
                         action='store_true', help=_("Stop at the first error instead of skipping it"))
     parser.add_argument("searchedperson", type=str, nargs='?', help=_(
         "Url of the person to search in Geneanet"))
@@ -79,6 +79,7 @@ def main():
     state.descendants = args.descendants
     state.spouses = args.spouses
     state.LEVEL = args.level
+    state.configure_logging()
 
     # TODO: do a backup before opening and remove fixed path
     if state.gname is None:
@@ -89,10 +90,9 @@ def main():
         climanager = CLIManager(dbstate, True, None)
         climanager.open_activate(state.gname)
         state.db = dbstate.db
-    except:
-        ErrorDialog(_("Opening the '%s' database") % state.gname,
-                    _("An attempt to convert the database failed. "
-                      "Perhaps it needs updating."), parent=self.top)
+    except Exception as e:
+        print(_("Opening the '%s' database failed: %s") % (state.gname, e))
+        print(_("Perhaps it needs updating."))
         sys.exit(-1)
 
     gid = args.id
@@ -102,11 +102,10 @@ def main():
 
     ids = state.db.get_person_gramps_ids()
     for i in ids:
-        if state.verbosity >= 3:
-            print(_("DEBUG: existing gramps id:") + i)
+        state.LOG.debug(_("existing gramps id:") + i)
 
-    if state.verbosity >= 1 and state.force:
-        print(_("WARNING: Force mode activated"))
+    if state.force:
+        state.LOG.warning(_("Force mode activated"))
         time.sleep(state.TIMEOUT)
 
     g2gaction(gid, purl)

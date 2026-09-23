@@ -1,20 +1,20 @@
 # GeneanetForGramps - GBase shared base class
 import re
 import time
-import traceback
 from urllib.parse import urlparse
 
 import src.state as state
-from src.state import _
-from src.date_utils import format_iso, format_noniso
+from src.state import _, LOG
+from src.date_utils import format_iso, format_noniso, geneanet_strings
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
-from gramps.gen.db import DbTxn
+from gramps.gen.errors import HandleError
 from gramps.gen.lib import (
     Event, EventType, Date, Place, EventRoleType, EventRef,
-    PlaceName, Family, FamilyRelType,
+    PlaceName, FamilyRelType,
 )
 
 
@@ -52,10 +52,10 @@ class GBase:
 
         username, password = get_credentials()
         if not username:
-            print(_("No credentials found. Populate %s to enable auto-login:") % CREDENTIALS_FILE)
-            print("  [geneanet]")
-            print("  username = your@email.com")
-            print("  password = yourpassword")
+            LOG.warning(_("No credentials found. Populate %s to enable auto-login:"), CREDENTIALS_FILE)
+            LOG.warning("  [geneanet]")
+            LOG.warning("  username = your@email.com")
+            LOG.warning("  password = yourpassword")
             return False
         try:
             wait = WebDriverWait(driver, 10)
@@ -65,10 +65,10 @@ class GBase:
                 try:
                     user_field = wait.until(EC.presence_of_element_located(sel))
                     break
-                except Exception:
+                except TimeoutException:
                     pass
             if user_field is None:
-                print(_('Could not locate the username field on the Geneanet login page.'))
+                LOG.warning(_('Could not locate the username field on the Geneanet login page.'))
                 return False
             user_field.clear()
             user_field.send_keys(username)
@@ -77,10 +77,10 @@ class GBase:
                 try:
                     pass_field = driver.find_element(*sel)
                     break
-                except Exception:
+                except NoSuchElementException:
                     pass
             if pass_field is None:
-                print(_('Could not locate the password field on the Geneanet login page.'))
+                LOG.warning(_('Could not locate the password field on the Geneanet login page.'))
                 return False
             pass_field.clear()
             pass_field.send_keys(password)
@@ -89,8 +89,7 @@ class GBase:
             WebDriverWait(driver, 15).until(
                 lambda d: 'connexion' not in d.current_url and 'login' not in d.current_url
             )
-            if state.verbosity >= 1:
-                print(_("Login successful."))
+            LOG.info(_("Login successful."))
             driver.get(purl)
             time.sleep(3)
             # Geneanet sometimes bounces straight to the homepage right
@@ -99,22 +98,21 @@ class GBase:
             # targeted page.
             retries = 0
             while urlparse(driver.current_url).path in ('', '/') and retries < 3:
-                if state.verbosity >= 1:
-                    print(_("Redirected to the Geneanet homepage after login, "
-                            "retrying %s.") % purl)
+                LOG.info(_("Redirected to the Geneanet homepage after login, retrying %s."), purl)
                 time.sleep(2)
                 driver.get(purl)
                 time.sleep(3)
                 retries += 1
             return True
-        except Exception as e:
-            if state.verbosity >= 1:
-                print(_("Auto-login failed:"), repr(e))
+        except Exception:
+            # Auto-login is best-effort: any unexpected failure here must
+            # not crash the whole import, so this catch stays broad - but
+            # log it so the reason is not lost.
+            LOG.debug(_("Auto-login failed"), exc_info=True)
             return False
 
     def _smartcopy(self, attr):
-        if state.verbosity >= 3:
-            print(_("Smart Copying Attributes"), attr)
+        LOG.debug(_("Smart Copying Attributes %s"), attr)
 
         scopy = False
 
@@ -131,22 +129,21 @@ class GBase:
             scopy = True
             if (self.__dict__[attr] == 'F' and self.__dict__['g_' + attr] == 'M') \
                     or (self.__dict__[attr] == 'M' and self.__dict__['g_' + attr] == 'F'):
-                if state.verbosity >= 1:
-                    print(_("WARNING: Gender conflict between Geneanet (%s) and Gramps (%s), keeping Gramps value") % (
-                        self.__dict__['g_' + attr], self.__dict__[attr]))
+                LOG.warning(_("Gender conflict between Geneanet (%s) and Gramps (%s), keeping Gramps value"),
+                            self.__dict__['g_' + attr], self.__dict__[attr])
                 scopy = False
 
         if attr == 'lastname' and self.__dict__[attr] != self.__dict__['g_' + attr]:
-            if state.verbosity >= 1 and self.__dict__[attr] != "":
-                print(_("WARNING: Lastname conflict between Geneanet (%s) and Gramps (%s), keeping Gramps value") % (
-                    self.__dict__['g_' + attr], self.__dict__[attr]))
+            if self.__dict__[attr] != "":
+                LOG.warning(_("Lastname conflict between Geneanet (%s) and Gramps (%s), keeping Gramps value"),
+                            self.__dict__['g_' + attr], self.__dict__[attr])
         if attr == 'lastname' and self.__dict__[attr] == "":
             scopy = True
 
         if attr == 'firstname' and self.__dict__[attr] != self.__dict__['g_' + attr]:
-            if state.verbosity >= 1 and self.__dict__[attr] != "":
-                print(_("WARNING: Firstname conflict between Geneanet (%s) and Gramps (%s), keeping Gramps value") % (
-                    self.__dict__['g_' + attr], self.__dict__[attr]))
+            if self.__dict__[attr] != "":
+                LOG.warning(_("Firstname conflict between Geneanet (%s) and Gramps (%s), keeping Gramps value"),
+                            self.__dict__['g_' + attr], self.__dict__[attr])
         if attr == 'firstname' and self.__dict__[attr] == "":
             scopy = True
 
@@ -175,27 +172,24 @@ class GBase:
                         scopy = True
 
         if scopy:
-            if state.verbosity >= 2:
-                print(_("Copying Person attribute %s (former value %s newer value %s)") % (
-                    attr, self.__dict__[attr], self.__dict__['g_' + attr]))
+            LOG.info(_("Copying Person attribute %s (former value %s newer value %s)"),
+                     attr, self.__dict__[attr], self.__dict__['g_' + attr])
             self.__dict__[attr] = self.__dict__['g_' + attr]
         else:
-            if state.verbosity >= 3:
-                print(_("Not Copying Person attribute (%s, value %s) onto %s") % (
-                    attr, self.__dict__[attr], self.__dict__['g_' + attr]))
+            LOG.debug(_("Not Copying Person attribute (%s, value %s) onto %s"),
+                      attr, self.__dict__[attr], self.__dict__['g_' + attr])
 
     def get_or_create_place(self, event, placename):
         try:
             pl = event.get_place_handle()
-        except:
+        except AttributeError:
             return Place()
 
         if pl:
             try:
                 place = state.db.get_place_from_handle(pl)
-                if state.verbosity >= 2:
-                    print(_("Reuse Place from Event:"), place.get_name().value)
-            except:
+                LOG.debug(_("Reuse Place from Event: %s"), place.get_name().value)
+            except HandleError:
                 place = Place()
         else:
             if placename is None:
@@ -204,18 +198,15 @@ class GBase:
             for handle in state.db.get_place_handles():
                 pl = state.db.get_place_from_handle(handle)
                 explace = pl.get_name().value
-                if state.verbosity >= 4:
-                    print(_("DEBUG: search for ") + str(placename) + _(" in ") + str(explace))
+                LOG.debug(_("search for %s in %s"), placename, explace)
                 if str(explace) == str(placename):
                     keep = pl
                     break
             if keep is None:
-                if state.verbosity >= 2:
-                    print(_("Create Place:"), placename)
+                LOG.debug(_("Create Place: %s"), placename)
                 place = Place()
             else:
-                if state.verbosity >= 2:
-                    print(_("Reuse existing Place:"), placename)
+                LOG.debug(_("Reuse existing Place: %s"), placename)
                 place = keep
         return place
 
@@ -227,8 +218,7 @@ class GBase:
             reffunc = func()
             if reffunc:
                 event = state.db.get_event_from_handle(reffunc.ref)
-                if state.verbosity >= 2:
-                    print(_("Existing ") + attr + _(" Event"))
+                LOG.debug(_("Existing %s Event"), attr)
         elif gobj.__class__.__name__ == 'Family':
             role = EventRoleType.FAMILY
             if attr == 'marriage':
@@ -241,11 +231,9 @@ class GBase:
                         marev = event
                 if marev:
                     event = marev
-                    if state.verbosity >= 2:
-                        print(_("Existing ") + attr + _(" Event"))
+                    LOG.debug(_("Existing %s Event"), attr)
         else:
-            print(_("ERROR: Unable to handle class %s in get_or_create_all_event") % (
-                gobj.__class__.__name__))
+            LOG.error(_("Unable to handle class %s in get_or_create_all_event"), gobj.__class__.__name__)
 
         if event is None:
             event = Event()
@@ -269,30 +257,35 @@ class GBase:
                     gobj.set_relationship(FamilyRelType(FamilyRelType.MARRIED))
                 state.db.commit_event(event, tran)
                 state.db.commit_family(gobj, tran)
-            if state.verbosity >= 2:
-                print(_("Creating ") + attr + " (" + str(uptype) + ") " + _("Event"))
+            LOG.info(_("Creating %s (%s) Event"), attr, uptype)
 
         if self.__dict__[attr + 'date'] \
                 or self.__dict__[attr + 'place'] \
                 or self.__dict__[attr + 'placecode']:
             date = event.get_date_object()
             if self.__dict__[attr + 'date']:
+                # The modifier prefix ("vers"/"about", "avant"/"before", ...)
+                # was written by format_ca() using the GENEANET PAGE's own
+                # language (see date_utils.geneanet_strings), not Gramps' UI
+                # locale - so it must be recognized the same way here,
+                # against every supported Geneanet language, regardless of
+                # which one Gramps' gettext _() currently resolves to.
+                prefix = self.__dict__[attr + 'date'][0:2]
                 idx = 0
                 mod = Date.MOD_NONE
-                if self.__dict__[attr + 'date'][0:2] == _("about")[0:2]:
-                    idx = 1
-                    mod = Date.MOD_ABOUT
-                elif self.__dict__[attr + 'date'][0:2] == _("before")[0:2]:
-                    idx = 1
-                    mod = Date.MOD_BEFORE
-                elif self.__dict__[attr + 'date'][0:2] == _("after")[0:2]:
-                    idx = 1
-                    mod = Date.MOD_AFTER
-                # Only in case of french language analysis
-                elif self.__dict__[attr + 'date'][0:2] == _("in")[0:2]:
-                    idx = 1
-                else:
-                    pass
+                for lang_strings in (geneanet_strings('fr'), geneanet_strings('en')):
+                    if prefix == lang_strings['about'][0:2]:
+                        idx, mod = 1, Date.MOD_ABOUT
+                        break
+                    elif prefix == lang_strings['before'][0:2]:
+                        idx, mod = 1, Date.MOD_BEFORE
+                        break
+                    elif prefix == lang_strings['after'][0:2]:
+                        idx, mod = 1, Date.MOD_AFTER
+                        break
+                    elif prefix == lang_strings['in'][0:2]:
+                        idx = 1
+                        break
                 if idx == 1:
                     string = self.__dict__[attr + 'date'].split(' ', 1)[1]
                 else:
@@ -305,15 +298,13 @@ class GBase:
                 elif len(tab) == 1:
                     date.set_year(int(tab[0]))
                 elif len(tab) == 0:
-                    print(_("WARNING: Trying to affect an empty date"))
-                    pass
+                    LOG.warning(_("Trying to affect an empty date"))
                 else:
-                    print(_("WARNING: Trying to affect an extra numbered date"))
-                    pass
+                    LOG.warning(_("Trying to affect an extra numbered date"))
                 if mod:
                     date.set_modifier(mod)
-            if state.verbosity >= 2 and self.__dict__[attr + 'date']:
-                print(_("Update ") + attr + _(" Date to ") + self.__dict__[attr + 'date'])
+            if self.__dict__[attr + 'date']:
+                LOG.info(_("Update %s Date to %s"), attr, self.__dict__[attr + 'date'])
             event.set_date_object(date)
             state.db.commit_event(event, tran)
 
@@ -331,8 +322,7 @@ class GBase:
         state.db.commit_event(event, tran)
 
     def get_gramps_date(self, evttype):
-        if state.verbosity >= 4:
-            print(_("EventType: %d") % (evttype))
+        LOG.debug(_("EventType: %d"), evttype)
 
         if not self:
             return None
@@ -351,44 +341,39 @@ class GBase:
                     break
             ref = eventref
         else:
-            print(_("Didn't find a known EventType: "), evttype)
+            LOG.error(_("Didn't find a known EventType: %s"), evttype)
             return None
 
-        if ref:
-            if state.verbosity >= 4:
-                print(_("Ref:"), ref)
-            try:
-                event = state.db.get_event_from_handle(ref.ref)
-            except:
-                print(_("Didn't find a known ref for this ref date: "), ref)
-                return None
-            if event:
-                if state.verbosity >= 4:
-                    print(_("Event") + ":", event)
-                date = event.get_date_object()
-                moddate = date.get_modifier()
-                tab = date.get_dmy()
-                if state.verbosity >= 4:
-                    print(_("Found date: "), tab)
-                if len(tab) == 3:
-                    tab = date.get_ymd()
-                    if state.verbosity >= 4:
-                        print(_("Found date2: "), tab)
-                    ret = format_iso(tab)
-                else:
-                    ret = format_noniso(tab)
-                if moddate == Date.MOD_BEFORE:
-                    pref = _("before") + " "
-                elif moddate == Date.MOD_AFTER:
-                    pref = _("after") + " "
-                elif moddate == Date.MOD_ABOUT:
-                    pref = _("about") + " "
-                else:
-                    pref = ""
-                if state.verbosity >= 3:
-                    print(_("Returned date: ") + pref + ret)
-                return pref + ret
-            else:
-                return None
-        else:
+        if not ref:
             return None
+
+        LOG.debug(_("Ref: %s"), ref)
+        try:
+            event = state.db.get_event_from_handle(ref.ref)
+        except HandleError:
+            LOG.error(_("Didn't find a known ref for this ref date: %s"), ref)
+            return None
+        if not event:
+            return None
+
+        LOG.debug(_("Event: %s"), event)
+        date = event.get_date_object()
+        moddate = date.get_modifier()
+        tab = date.get_dmy()
+        LOG.debug(_("Found date: %s"), tab)
+        if len(tab) == 3:
+            tab = date.get_ymd()
+            LOG.debug(_("Found date2: %s"), tab)
+            ret = format_iso(tab)
+        else:
+            ret = format_noniso(tab)
+        if moddate == Date.MOD_BEFORE:
+            pref = _("before") + " "
+        elif moddate == Date.MOD_AFTER:
+            pref = _("after") + " "
+        elif moddate == Date.MOD_ABOUT:
+            pref = _("about") + " "
+        else:
+            pref = ""
+        LOG.debug(_("Returned date: %s"), pref + ret)
+        return pref + ret
