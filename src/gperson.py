@@ -699,7 +699,11 @@ class GPerson(GBase):
         from src.gfamily import GFamily
         from src.importer import geneanet_to_gramps
         loop = False
-        if level <= state.LEVEL and (self.fref != "" or self.mref != ""):
+        # Strict "<": level already reflects self's own generation, so
+        # stop recursing further once self is at the requested depth -
+        # otherwise one extra generation gets fetched (LEVEL=1 would
+        # actually explore grandparents too).
+        if level < state.LEVEL and (self.fref != "" or self.mref != ""):
             loop = True
             level = level + 1
 
@@ -776,7 +780,7 @@ class GPerson(GBase):
                 f.add_child(self)
 
         if not loop:
-            if level > state.LEVEL:
+            if level >= state.LEVEL:
                 if state.verbosity >= 2:
                     print(_("Stopping exploration as we reached level ") + str(level))
             else:

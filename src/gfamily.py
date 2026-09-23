@@ -234,7 +234,12 @@ class GFamily(GBase):
                       " " + self.father.lastname + " - " + self.mother.firstname + " " + self.mother.lastname)
             return
         loop = False
-        if level <= state.LEVEL and cpt > 0:
+        # Strict "<": level reflects how many generations of descent already
+        # led to this family, so stop recursing into a child's own family
+        # once that count reaches the requested depth - otherwise one extra
+        # generation gets fetched (LEVEL=1 would actually explore
+        # grandchildren too).
+        if level < state.LEVEL and cpt > 0:
             loop = True
             level = level + 1
 
@@ -283,7 +288,7 @@ class GFamily(GBase):
                           ' - ' + self.mother.firstname + " " + self.mother.lastname + _(" as there are no more children"))
                 return
 
-            if level > state.LEVEL:
+            if level >= state.LEVEL:
                 if state.verbosity >= 1:
                     print(_("Stopping exploration for family ") + self.father.firstname + " " + self.father.lastname +
                           ' - ' + self.mother.firstname + " " + self.mother.lastname + _(" as we reached level ") + str(level))
