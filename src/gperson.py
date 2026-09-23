@@ -92,45 +92,51 @@ class GPerson(GBase):
 
             driver.get(purl)
 
-            # Wait for Cloudflare challenge to be resolved (manually or automatically)
-            cf_timeout = 120
+            # Wait for the real page content to appear, tolerating a
+            # Cloudflare challenge that can be shown more than once (e.g. a
+            # second checkbox click) and a login/CAPTCHA redirect happening
+            # in between. Poll for the actual target element instead of
+            # trusting the page title, which is also localized (French on
+            # this site) and unreliable to match reliably against a fixed
+            # set of English substrings.
+            from selenium.webdriver.common.by import By
+            from selenium.common.exceptions import WebDriverException
+
+            total_timeout = 180
             poll_interval = 2
             elapsed = 0
-            while elapsed < cf_timeout:
-                title = driver.title.lower()
-                if "challenge" not in title and "just a moment" not in title and "attention required" not in title:
+            notice_shown = False
+            login_attempted = False
+            while True:
+                try:
+                    found = bool(driver.find_elements(By.ID, "person-title"))
+                    current_url = driver.current_url
+                except WebDriverException:
+                    found, current_url = False, ""
+
+                if found:
                     break
-                if elapsed == 0:
+
+                if ('connexion' in current_url or 'login' in current_url) and not login_attempted:
+                    login_attempted = True
+                    print(_("Geneanet login required for %s.") % purl)
+                    if not self._do_login(driver, purl):
+                        raise GeneanetAccessError(
+                            _("Geneanet requires logging in (possibly behind a CAPTCHA) for %s, "
+                              "and auto-login could not complete it.") % purl)
+                    continue
+
+                if not notice_shown:
                     print(_("Cloudflare verification detected. Please complete the challenge in the browser window."))
+                    notice_shown = True
+
+                if elapsed >= total_timeout:
+                    raise GeneanetAccessError(
+                        _("The page for %s never finished loading real content "
+                          "(Cloudflare check likely still pending).") % purl)
+
                 time.sleep(poll_interval)
                 elapsed += poll_interval
-            else:
-                raise GeneanetAccessError(
-                    _("Cloudflare challenge was not resolved within the timeout for %s.") % purl)
-
-            # Detect connexion/login redirect (includes view_limit_redirect) and auto-login
-            if 'connexion' in driver.current_url or 'login' in driver.current_url:
-                print(_("Geneanet login required for %s.") % purl)
-                if not self._do_login(driver, purl):
-                    raise GeneanetAccessError(
-                        _("Geneanet requires logging in (possibly behind a CAPTCHA) for %s, "
-                          "and auto-login could not complete it.") % purl)
-
-            # The title leaving the Cloudflare challenge state does not mean
-            # the actual person page has rendered yet - it can still be
-            # blank/interstitial for a moment. Wait for real content before
-            # trusting the page, instead of extracting from whatever is
-            # there at that instant.
-            from selenium.webdriver.common.by import By
-            from selenium.webdriver.support.ui import WebDriverWait
-            from selenium.webdriver.support import expected_conditions as EC
-            try:
-                WebDriverWait(driver, 30).until(
-                    EC.presence_of_element_located((By.ID, "person-title")))
-            except Exception:
-                raise GeneanetAccessError(
-                    _("The page for %s never finished loading real content "
-                      "(Cloudflare check likely still pending).") % purl)
 
             if state.verbosity >= 3:
                 print(_("URL:"), driver.current_url)
