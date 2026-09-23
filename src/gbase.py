@@ -2,6 +2,7 @@
 import re
 import time
 import traceback
+from urllib.parse import urlparse
 
 import src.state as state
 from src.state import _
@@ -92,6 +93,19 @@ class GBase:
                 print(_("Login successful."))
             driver.get(purl)
             time.sleep(3)
+            # Geneanet sometimes bounces straight to the homepage right
+            # after login instead of honoring the page we just requested -
+            # detect that and re-issue the request for the originally
+            # targeted page.
+            retries = 0
+            while urlparse(driver.current_url).path in ('', '/') and retries < 3:
+                if state.verbosity >= 1:
+                    print(_("Redirected to the Geneanet homepage after login, "
+                            "retrying %s.") % purl)
+                time.sleep(2)
+                driver.get(purl)
+                time.sleep(3)
+                retries += 1
             return True
         except Exception as e:
             if state.verbosity >= 1:
