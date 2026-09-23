@@ -774,10 +774,15 @@ class GPerson(GBase):
                         if mf.gid != f.gid:
                             mf.recurse_children(level)
 
+            # self is certainly a child of this family - we found father/
+            # mother via self.fref/self.mref in the first place - so link it
+            # directly instead of relying solely on recurse_children below
+            # re-matching self by name/date among Geneanet's own child
+            # listing, which can silently fail to recognize self and leave
+            # it unlinked even though the family was created.
+            f.add_child(self)
             if state.descendants:
                 f.recurse_children(level)
-            else:
-                f.add_child(self)
 
         if not loop:
             if level >= state.LEVEL:
