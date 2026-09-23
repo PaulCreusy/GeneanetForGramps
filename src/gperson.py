@@ -116,6 +116,22 @@ class GPerson(GBase):
                         _("Geneanet requires logging in (possibly behind a CAPTCHA) for %s, "
                           "and auto-login could not complete it.") % purl)
 
+            # The title leaving the Cloudflare challenge state does not mean
+            # the actual person page has rendered yet - it can still be
+            # blank/interstitial for a moment. Wait for real content before
+            # trusting the page, instead of extracting from whatever is
+            # there at that instant.
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+            try:
+                WebDriverWait(driver, 30).until(
+                    EC.presence_of_element_located((By.ID, "person-title")))
+            except Exception:
+                raise GeneanetAccessError(
+                    _("The page for %s never finished loading real content "
+                      "(Cloudflare check likely still pending).") % purl)
+
             if state.verbosity >= 3:
                 print(_("URL:"), driver.current_url)
                 print(_("Title:"), driver.title)
