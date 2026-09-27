@@ -29,8 +29,14 @@ class GBase:
             options.binary_location = "/usr/bin/chromium-browser"
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--remote-debugging-port=9222")
             options.add_argument("--window-size=800,800")
+            # Do NOT force --remote-debugging-port to a fixed value: it
+            # makes chromedriver lose track of the Chrome process it
+            # spawned, so driver.quit() closes the DevTools connection but
+            # leaves the actual browser process running - exactly the "the
+            # browser never closes" symptom this used to cause on every
+            # single import. Let Selenium pick its own ephemeral port so it
+            # keeps proper ownership of (and can kill) the process it started.
             # Hide automation indicators so Cloudflare allows manual checkbox clicks
             options.add_argument("--disable-blink-features=AutomationControlled")
             options.add_experimental_option("excludeSwitches", ["enable-automation"])

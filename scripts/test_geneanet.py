@@ -9,7 +9,8 @@ options.binary_location = "/usr/bin/chromium-browser"
 profile = tempfile.mkdtemp(prefix="geneanet-chrome-")
 options.add_argument("--no-sandbox")
 options.add_argument("--disable-dev-shm-usage")
-options.add_argument("--remote-debugging-port=9222")
+# Do NOT force --remote-debugging-port: it makes chromedriver lose track of
+# the process it spawned, so quit() stops driving it without closing it.
 options.add_argument("--window-size=800,800")
 
 driver = webdriver.Chrome(options=options)
