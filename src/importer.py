@@ -94,6 +94,6 @@ def g2gaction(gid, purl):
             else:
                 LOG.error(_("Geneanet import stopped."))
     finally:
-        state.close_selenium_driver()
+        state.close_worker()
         if state.GUIMODE:
             state.progress.close()

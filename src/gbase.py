@@ -1,17 +1,9 @@
 # GeneanetForGramps - GBase shared base class
 import re
-import socket
-import tempfile
-import time
-from urllib.parse import urlparse
 
 import src.state as state
 from src.state import _, LOG
 from src.date_utils import format_iso, format_noniso, geneanet_strings
-
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 from gramps.gen.errors import HandleError
 from gramps.gen.lib import (
@@ -20,120 +12,10 @@ from gramps.gen.lib import (
 )
 
 
-def _free_tcp_port():
-    """Ask the OS for a currently-unused local port, so each session gets
-    its own remote-debugging port instead of a hardcoded one that can
-    collide with other tools or a leftover process on the same port."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('127.0.0.1', 0))
-        return s.getsockname()[1]
-
-
 class GBase:
 
     def __init__(self):
         pass
-
-    def get_selenium_driver(self):
-        if state.selenium_driver is None:
-            options = Options()
-            options.binary_location = "/usr/bin/chromium-browser"
-            # A dedicated, throwaway profile directory per session, so a
-            # leftover process from an earlier run can never hold a lock on
-            # the profile a fresh session tries to start against.
-            state.selenium_profile_dir = tempfile.mkdtemp(prefix="geneanetforgramps-chrome-")
-            options.add_argument("--user-data-dir=" + state.selenium_profile_dir)
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--window-size=800,800")
-            # An explicit --remote-debugging-port is required for the
-            # chromedriver<->Chrome handshake to complete at all on some
-            # builds (e.g. Ubuntu's snap-packaged chromium-browser, whose
-            # confinement breaks the automatic port negotiation): without
-            # it, webdriver.Chrome() hangs forever instead of raising.
-            # Picking a fresh port per session (rather than a fixed one)
-            # avoids colliding with other tools or an unrelated leftover
-            # process using the same well-known port.
-            options.add_argument("--remote-debugging-port=%d" % _free_tcp_port())
-            # Hide automation indicators so Cloudflare allows manual checkbox clicks
-            options.add_argument("--disable-blink-features=AutomationControlled")
-            options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            options.add_experimental_option("useAutomationExtension", False)
-            state.selenium_driver = webdriver.Chrome(options=options)
-            # Remove the webdriver property from navigator to bypass Cloudflare detection
-            state.selenium_driver.execute_cdp_cmd(
-                "Page.addScriptToEvaluateOnNewDocument",
-                {"source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"},
-            )
-        return state.selenium_driver
-
-    def _do_login(self, driver, purl):
-        """Fill the Geneanet login form with stored credentials then navigate to purl."""
-        from src.credentials import get_credentials, CREDENTIALS_FILE
-        from selenium.webdriver.common.by import By
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
-
-        username, password = get_credentials()
-        if not username:
-            LOG.warning(_("No credentials found. Populate %s to enable auto-login:"), CREDENTIALS_FILE)
-            LOG.warning("  [geneanet]")
-            LOG.warning("  username = your@email.com")
-            LOG.warning("  password = yourpassword")
-            return False
-        try:
-            wait = WebDriverWait(driver, 10)
-            # Geneanet (Symfony) uses _username/_password; fall back to type-based selectors
-            user_field = None
-            for sel in [(By.NAME, '_username'), (By.CSS_SELECTOR, 'input[type="email"]'), (By.NAME, 'email')]:
-                try:
-                    user_field = wait.until(EC.presence_of_element_located(sel))
-                    break
-                except TimeoutException:
-                    pass
-            if user_field is None:
-                LOG.warning(_('Could not locate the username field on the Geneanet login page.'))
-                return False
-            user_field.clear()
-            user_field.send_keys(username)
-            pass_field = None
-            for sel in [(By.NAME, '_password'), (By.CSS_SELECTOR, 'input[type="password"]')]:
-                try:
-                    pass_field = driver.find_element(*sel)
-                    break
-                except NoSuchElementException:
-                    pass
-            if pass_field is None:
-                LOG.warning(_('Could not locate the password field on the Geneanet login page.'))
-                return False
-            pass_field.clear()
-            pass_field.send_keys(password)
-            pass_field.submit()
-            # Wait until the browser leaves the login page
-            WebDriverWait(driver, 15).until(
-                lambda d: 'connexion' not in d.current_url and 'login' not in d.current_url
-            )
-            LOG.info(_("Login successful."))
-            driver.get(purl)
-            time.sleep(3)
-            # Geneanet sometimes bounces straight to the homepage right
-            # after login instead of honoring the page we just requested -
-            # detect that and re-issue the request for the originally
-            # targeted page.
-            retries = 0
-            while urlparse(driver.current_url).path in ('', '/') and retries < 3:
-                LOG.info(_("Redirected to the Geneanet homepage after login, retrying %s."), purl)
-                time.sleep(2)
-                driver.get(purl)
-                time.sleep(3)
-                retries += 1
-            return True
-        except Exception:
-            # Auto-login is best-effort: any unexpected failure here must
-            # not crash the whole import, so this catch stays broad - but
-            # log it so the reason is not lost.
-            LOG.debug(_("Auto-login failed"), exc_info=True)
-            return False
 
     def _smartcopy(self, attr):
         LOG.debug(_("Smart Copying Attributes %s"), attr)

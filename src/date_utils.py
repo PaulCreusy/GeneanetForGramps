@@ -1,4 +1,9 @@
 # GeneanetForGramps - Date formatting and conversion helpers
+#
+# This module is intentionally standalone (no `src.state`/Gramps imports):
+# it is shared between the Gramps-side plugin code and the isolated scraper
+# worker process, which does not have Gramps' gettext/logging available.
+import logging
 from datetime import date as _date
 
 # strptime('%B') only works for the active C locale; use an explicit map instead
@@ -11,7 +16,11 @@ _MONTHS = {
     'september': 9, 'october': 10, 'november': 11, 'december': 12,
 }
 
-from src.state import _, LOG
+LOG = logging.getLogger("GeneanetForGramps")
+
+
+def _(s):
+    return s
 
 # Geneanet page keywords, keyed by the page's own "lang=" URL parameter.
 # These must NOT be derived from Gramps' UI locale (gettext _()): the page

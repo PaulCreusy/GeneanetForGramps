@@ -81,10 +81,11 @@ class GeneanetForGramps(PluginWindows.ToolManagedWindowBatch):
         g2gaction(self.gid, self.purl)
 
     def __get_menu_options(self):
-        # Close (not just discard) any browser left over from a previous
-        # run that failed to clean up after itself - dropping the reference
-        # without quitting it would leak that Chrome process silently.
-        state.close_selenium_driver()
+        # Close (not just discard) any scraper worker left over from a
+        # previous run that failed to clean up after itself - dropping the
+        # reference without shutting it down would leak that browser
+        # process silently.
+        state.close_worker()
 
         self.gid = self.options.menu.get_option_by_name('pid').get_value()
         self.purl = self.options.menu.get_option_by_name('gui_url').get_value()
