@@ -29,6 +29,23 @@ def configure_logging():
         LOG.addHandler(handler)
 
 
+def close_selenium_driver():
+    """Best-effort cleanup of the shared Selenium driver that ALWAYS clears
+    selenium_driver, even if quit() itself fails. A narrower except here
+    (e.g. only Selenium's own WebDriverException) can leave a failed quit()
+    both hiding the browser window from every later call (which sees
+    selenium_driver as still "open") and skipping whatever cleanup the
+    caller runs right after this - which is exactly how the browser was
+    observed staying open at the end of an import."""
+    global selenium_driver
+    if selenium_driver is not None:
+        try:
+            selenium_driver.quit()
+        except Exception:
+            LOG.debug(_("Failed to close the Selenium browser cleanly"), exc_info=True)
+        selenium_driver = None
+
+
 TIMEOUT = 5
 ROOTURL = 'https://gw.geneanet.org/'
 WIKI_HELP_PAGE = '%s_-_Tools' % URL_MANUAL_PAGE

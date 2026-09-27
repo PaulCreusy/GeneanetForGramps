@@ -81,7 +81,10 @@ class GeneanetForGramps(PluginWindows.ToolManagedWindowBatch):
         g2gaction(self.gid, self.purl)
 
     def __get_menu_options(self):
-        state.selenium_driver = None
+        # Close (not just discard) any browser left over from a previous
+        # run that failed to clean up after itself - dropping the reference
+        # without quitting it would leak that Chrome process silently.
+        state.close_selenium_driver()
 
         self.gid = self.options.menu.get_option_by_name('pid').get_value()
         self.purl = self.options.menu.get_option_by_name('gui_url').get_value()

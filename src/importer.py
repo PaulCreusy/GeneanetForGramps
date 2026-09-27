@@ -6,7 +6,6 @@ from src.state import _, LOG
 from src.gperson import GPerson
 from src.exceptions import GeneanetAccessError
 from gramps.gui.dialog import ErrorDialog
-from selenium.common.exceptions import WebDriverException
 
 
 def _report_conflict(title, detail):
@@ -95,11 +94,6 @@ def g2gaction(gid, purl):
             else:
                 LOG.error(_("Geneanet import stopped."))
     finally:
-        if state.selenium_driver is not None:
-            try:
-                state.selenium_driver.quit()
-            except WebDriverException:
-                pass
-            state.selenium_driver = None
+        state.close_selenium_driver()
         if state.GUIMODE:
             state.progress.close()
