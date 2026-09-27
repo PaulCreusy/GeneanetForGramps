@@ -7,6 +7,7 @@ options = Options()
 options.binary_location = "/usr/bin/chromium-browser"
 
 profile = tempfile.mkdtemp(prefix="geneanet-chrome-")
+options.add_argument("--user-data-dir=" + profile)
 options.add_argument("--no-sandbox")
 options.add_argument("--disable-dev-shm-usage")
 # Do NOT force --remote-debugging-port: it makes chromedriver lose track of

@@ -1,5 +1,6 @@
 # GeneanetForGramps - Shared runtime state, configuration, and i18n
 import logging
+import shutil
 
 from gramps.gen.config import config
 from gramps.gen.const import GRAMPS_LOCALE as glocale, URL_MANUAL_PAGE
@@ -37,13 +38,16 @@ def close_selenium_driver():
     selenium_driver as still "open") and skipping whatever cleanup the
     caller runs right after this - which is exactly how the browser was
     observed staying open at the end of an import."""
-    global selenium_driver
+    global selenium_driver, selenium_profile_dir
     if selenium_driver is not None:
         try:
             selenium_driver.quit()
         except Exception:
             LOG.debug(_("Failed to close the Selenium browser cleanly"), exc_info=True)
         selenium_driver = None
+    if selenium_profile_dir is not None:
+        shutil.rmtree(selenium_profile_dir, ignore_errors=True)
+        selenium_profile_dir = None
 
 
 TIMEOUT = 5
@@ -63,6 +67,7 @@ LEVEL = 2
 GUIMODE = False
 progress = None
 selenium_driver = None
+selenium_profile_dir = None
 stop_on_error = False
 
 CONFIG_NAME = "geneanetforgramps"

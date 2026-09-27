@@ -1,5 +1,6 @@
 # GeneanetForGramps - GBase shared base class
 import re
+import tempfile
 import time
 from urllib.parse import urlparse
 
@@ -27,16 +28,24 @@ class GBase:
         if state.selenium_driver is None:
             options = Options()
             options.binary_location = "/usr/bin/chromium-browser"
+            # A dedicated, throwaway profile directory per session - without
+            # this, Chrome launched against the default profile can find it
+            # already locked by a leftover process from an earlier run (one
+            # that a fixed --remote-debugging-port used to silently attach
+            # to instead of spawning its own) and then never fully starts,
+            # leaving the window stuck on a blank "data:," page.
+            state.selenium_profile_dir = tempfile.mkdtemp(prefix="geneanetforgramps-chrome-")
+            options.add_argument("--user-data-dir=" + state.selenium_profile_dir)
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--window-size=800,800")
-            # Do NOT force --remote-debugging-port to a fixed value: it
-            # makes chromedriver lose track of the Chrome process it
-            # spawned, so driver.quit() closes the DevTools connection but
-            # leaves the actual browser process running - exactly the "the
-            # browser never closes" symptom this used to cause on every
-            # single import. Let Selenium pick its own ephemeral port so it
-            # keeps proper ownership of (and can kill) the process it started.
+            # Do NOT force --remote-debugging-port to a fixed value: with an
+            # isolated profile dir there is no longer a stale process to
+            # collide with, and letting Selenium pick its own ephemeral port
+            # keeps chromedriver's ownership of (and ability to kill) the
+            # exact process it started - a fixed port previously made it
+            # attach to a leftover process instead, so quit() never closed
+            # the actual browser window.
             # Hide automation indicators so Cloudflare allows manual checkbox clicks
             options.add_argument("--disable-blink-features=AutomationControlled")
             options.add_experimental_option("excludeSwitches", ["enable-automation"])
