@@ -1,5 +1,4 @@
 # GeneanetForGramps - Date formatting and conversion helpers
-import re
 from datetime import date as _date
 
 # strptime('%B') only works for the active C locale; use an explicit map instead
@@ -12,8 +11,7 @@ _MONTHS = {
     'september': 9, 'october': 10, 'november': 11, 'december': 12,
 }
 
-import src.state as state
-from src.state import _
+from src.state import _, LOG
 
 # Geneanet page keywords, keyed by the page's own "lang=" URL parameter.
 # These must NOT be derived from Gramps' UI locale (gettext _()): the page
@@ -63,8 +61,7 @@ def format_noniso(date_tuple):
 
 def convert_date(datetab, lang='fr'):
     strings = geneanet_strings(lang)
-    if state.verbosity >= 3:
-        print(_("datetab received:"), datetab)
+    LOG.debug(_("datetab received: %s"), datetab)
     if len(datetab) == 0:
         return None
     idx = 0

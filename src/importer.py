@@ -2,7 +2,7 @@
 import sys
 
 import src.state as state
-from src.state import _
+from src.state import _, LOG
 from src.gperson import GPerson
 from src.exceptions import GeneanetAccessError
 from gramps.gui.dialog import ErrorDialog
@@ -10,7 +10,7 @@ from gramps.gui.dialog import ErrorDialog
 
 def _report_conflict(title, detail):
     """Report a blocking conflict: stop the CLI, or show a popup in GUI mode."""
-    print(detail)
+    LOG.error(detail)
     if not state.GUIMODE:
         state.db.close()
         sys.exit(_("Do not continue without force"))
@@ -88,17 +88,12 @@ def g2gaction(gid, purl):
                         f.recurse_children(0)
         except GeneanetAccessError as e:
             detail = str(e)
-            print(detail)
+            LOG.error(detail)
             if state.GUIMODE:
                 ErrorDialog(_("Geneanet import stopped"), detail)
             else:
-                print(_("Geneanet import stopped."))
+                LOG.error(_("Geneanet import stopped."))
     finally:
-        if state.selenium_driver is not None:
-            try:
-                state.selenium_driver.quit()
-            except Exception:
-                pass
-            state.selenium_driver = None
+        state.close_selenium_driver()
         if state.GUIMODE:
             state.progress.close()

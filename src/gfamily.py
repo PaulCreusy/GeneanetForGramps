@@ -1,9 +1,10 @@
 # GeneanetForGramps - GFamily class
 import src.state as state
-from src.state import _
+from src.state import _, LOG
 from src.gbase import GBase
 
 from gramps.gen.db import DbTxn
+from gramps.gen.errors import HandleError
 from gramps.gen.lib import Family, ChildRef, EventType, EventRoleType
 
 
@@ -25,9 +26,8 @@ class GFamily(GBase):
         self.g_marriageplacecode = None
         self.g_childref = []
 
-        if state.verbosity >= 1:
-            print(_("Creating GFamily: ") + father.firstname + " " +
-                  father.lastname + " - " + mother.firstname + " " + mother.lastname)
+        LOG.info(_("Creating GFamily: %s %s - %s %s"),
+                 father.firstname, father.lastname, mother.firstname, mother.lastname)
         self.url = father.url
         if self.url == "":
             self.url = mother.url
@@ -41,18 +41,15 @@ class GFamily(GBase):
             state.db.add_family(grampsf, tran)
             self.gid = grampsf.gramps_id
             self.family = grampsf
-            if state.verbosity >= 2:
-                print(_("Create new Gramps Family: ") + self.gid)
+            LOG.info(_("Create new Gramps Family: %s"), self.gid)
 
     def find_grampsf(self):
-        if state.verbosity >= 2:
-            print(_("Look for a Gramps Family"))
+        LOG.debug(_("Look for a Gramps Family"))
         f = None
         ids = state.db.get_family_gramps_ids()
         for i in ids:
             f = state.db.get_family_from_gramps_id(i)
-            if state.verbosity >= 3:
-                print(_("Analysing Gramps Family ") + f.gramps_id)
+            LOG.debug(_("Analysing Gramps Family %s"), f.gramps_id)
             father = None
             fh = f.get_father_handle()
             if fh:
@@ -61,13 +58,10 @@ class GFamily(GBase):
             mh = f.get_mother_handle()
             if mh:
                 mother = state.db.get_person_from_handle(mh)
-            if state.verbosity >= 3:
-                fgid = father.gramps_id if father else "None"
-                sfgid = self.father.gid if self.father.gid else "None"
-                print(_("Check father ids: ") + fgid + _(" vs ") + sfgid)
-                mgid = mother.gramps_id if mother else "None"
-                smgid = self.mother.gid if self.mother.gid else "None"
-                print(_("Check mother ids: ") + mgid + _(" vs ") + smgid)
+            LOG.debug(_("Check father ids: %s vs %s"),
+                      father.gramps_id if father else "None", self.father.gid or "None")
+            LOG.debug(_("Check mother ids: %s vs %s"),
+                      mother.gramps_id if mother else "None", self.mother.gid or "None")
             if self.father and father and father.gramps_id == self.father.gid \
                     and self.mother and mother and mother.gramps_id == self.mother.gid:
                 return f
@@ -77,11 +71,9 @@ class GFamily(GBase):
     def from_geneanet(self):
         idx = 0
         for sr in self.father.spouseref:
-            if state.verbosity >= 3:
-                print(_("Comparing sr %s to %s (idx: %d)") % (sr, self.mother.url, idx))
+            LOG.debug(_("Comparing sr %s to %s (idx: %d)"), sr, self.mother.url, idx)
             if sr == self.mother.url:
-                if state.verbosity >= 2:
-                    print(_("Spouse %s found (idx: %d)") % (sr, idx))
+                LOG.debug(_("Spouse %s found (idx: %d)"), sr, idx)
                 break
             idx = idx + 1
 
@@ -93,36 +85,30 @@ class GFamily(GBase):
                 self.g_childref.append(c)
 
         if self.g_marriagedate and self.g_marriageplace and self.g_marriageplacecode:
-            if state.verbosity >= 2:
-                print(_("Geneanet Marriage found the %s at %s (%s)") % (
-                    self.g_marriagedate, self.g_marriageplace, self.g_marriageplacecode))
+            LOG.debug(_("Geneanet Marriage found the %s at %s (%s)"),
+                      self.g_marriagedate, self.g_marriageplace, self.g_marriageplacecode)
 
     def from_gramps(self, gid):
-        if state.verbosity >= 2:
-            print(_("Calling from_gramps with gid: %s") % (gid))
+        LOG.debug(_("Calling from_gramps with gid: %s"), gid)
 
         if not gid and self.gid:
             gid = self.gid
 
-        if state.verbosity >= 2:
-            print(_("Now gid is: %s") % (gid))
+        LOG.debug(_("Now gid is: %s"), gid)
 
         found = None
         try:
             found = state.db.get_family_from_gramps_id(gid)
             self.gid = gid
             self.family = found
-            if state.verbosity >= 2:
-                print(_("Existing gid of a Gramps Family: %s") % (self.gid))
-        except:
-            if state.verbosity >= 1:
-                print(_("WARNING: Unable to retrieve id %s from the gramps db %s") % (gid, state.gname))
+            LOG.debug(_("Existing gid of a Gramps Family: %s"), self.gid)
+        except HandleError:
+            LOG.warning(_("Unable to retrieve id %s from the gramps db %s"), gid, state.gname)
 
         if not found:
             self.family = self.find_grampsf()
             if self.family:
-                if state.verbosity >= 2:
-                    print(_("Found an existing Gramps family ") + self.family.gramps_id)
+                LOG.debug(_("Found an existing Gramps family %s"), self.family.gramps_id)
                 self.gid = self.family.gramps_id
             if self.family is None:
                 self.create_grampsf()
@@ -141,10 +127,9 @@ class GFamily(GBase):
                     self.marriageplacecode = place.get_code()
                     break
 
-            if state.verbosity >= 2:
-                if self.marriagedate and self.marriageplace and self.marriageplacecode:
-                    print(_("Gramps Marriage found the %s at %s (%s)") % (
-                        self.marriagedate, self.marriageplace, self.marriageplacecode))
+            if self.marriagedate and self.marriageplace and self.marriageplacecode:
+                LOG.debug(_("Gramps Marriage found the %s at %s (%s)"),
+                          self.marriagedate, self.marriageplace, self.marriageplacecode)
 
     def to_gramps(self):
         self.smartcopy()
@@ -155,34 +140,30 @@ class GFamily(GBase):
 
             try:
                 grampsp0 = state.db.get_person_from_gramps_id(self.father.gid)
-            except:
-                if state.verbosity >= 2:
-                    print(_("No father for this family"))
+            except HandleError:
+                LOG.debug(_("No father for this family"))
                 grampsp0 = None
 
             if grampsp0:
                 try:
                     self.family.set_father_handle(grampsp0.get_handle())
-                except:
-                    if state.verbosity >= 2:
-                        print(_("Can't affect father to the family"))
+                except AttributeError:
+                    LOG.debug(_("Can't affect father to the family"))
                 state.db.commit_family(self.family, tran)
                 grampsp0.add_family_handle(self.family.get_handle())
                 state.db.commit_person(grampsp0, tran)
 
             try:
                 grampsp1 = state.db.get_person_from_gramps_id(self.mother.gid)
-            except:
-                if state.verbosity >= 2:
-                    print(_("No mother for this family"))
+            except HandleError:
+                LOG.debug(_("No mother for this family"))
                 grampsp1 = None
 
             if grampsp1:
                 try:
                     self.family.set_mother_handle(grampsp1.get_handle())
-                except:
-                    if state.verbosity >= 2:
-                        print(_("Can't affect mother to the family"))
+                except AttributeError:
+                    LOG.debug(_("Can't affect mother to the family"))
                 state.db.commit_family(self.family, tran)
                 grampsp1.add_family_handle(self.family.get_handle())
                 state.db.commit_person(grampsp1, tran)
@@ -190,8 +171,7 @@ class GFamily(GBase):
             self.get_or_create_event(self.family, 'marriage', tran)
 
     def smartcopy(self):
-        if state.verbosity >= 2:
-            print(_("Smart Copying Family"))
+        LOG.debug(_("Smart Copying Family"))
         self._smartcopy("marriagedate")
         self._smartcopy("marriageplace")
         self._smartcopy("marriageplacecode")
@@ -202,21 +182,18 @@ class GFamily(GBase):
             c = state.db.get_person_from_handle(cr.ref)
             if c.gramps_id == child.gid:
                 found = child
-                if state.verbosity >= 1:
-                    print(_("Child already existing : ") + child.firstname + " " + child.lastname)
+                LOG.info(_("Child already existing : %s %s"), child.firstname, child.lastname)
                 break
 
         if not found:
             if child:
-                if state.verbosity >= 2:
-                    print(_("Adding child: ") + child.firstname + " " + child.lastname)
+                LOG.debug(_("Adding child: %s %s"), child.firstname, child.lastname)
                 childref = ChildRef()
                 if child.grampsp:
                     try:
                         childref.set_reference_handle(child.grampsp.get_handle())
-                    except:
-                        if state.verbosity >= 2:
-                            print(_("No handle for this child"))
+                    except AttributeError:
+                        LOG.debug(_("No handle for this child"))
                     self.family.add_child_ref(childref)
                     with DbTxn("Geneanet import", state.db) as tran:
                         state.db.commit_family(self.family, tran)
@@ -226,13 +203,9 @@ class GFamily(GBase):
     def recurse_children(self, level):
         # Local import to break the circular dependency with importer
         from src.importer import geneanet_to_gramps
-        try:
-            cpt = len(self.g_childref)
-        except:
-            if state.verbosity >= 1:
-                print(_("Stopping exploration as there are no more children for family ") + self.fater.firstname +
-                      " " + self.father.lastname + " - " + self.mother.firstname + " " + self.mother.lastname)
-            return
+        # self.g_childref always exists (set to [] in __init__), so this
+        # never actually raises - the length is always defined.
+        cpt = len(self.g_childref)
         loop = False
         # Strict "<": level reflects how many generations of descent already
         # led to this family, so stop recursing into a child's own family
@@ -244,7 +217,7 @@ class GFamily(GBase):
             level = level + 1
 
             if not self.family:
-                print(_("WARNING: No family found whereas there should be one :-("))
+                LOG.error(_("No family found whereas there should be one :-("))
                 return
 
             for c in self.g_childref:
@@ -253,15 +226,13 @@ class GFamily(GBase):
                     # (private/hidden individual) - nothing we can fetch or
                     # attach, so skip it instead of creating a nameless
                     # person.
-                    if state.verbosity >= 1:
-                        print(_("No navigable link for a child of ") + self.father.firstname +
-                              " " + self.father.lastname + " - " + self.mother.firstname +
-                              " " + self.mother.lastname + _(" (private profile), skipping"))
+                    LOG.info(_("No navigable link for a child of %s %s - %s %s (private profile), skipping"),
+                              self.father.firstname, self.father.lastname,
+                              self.mother.firstname, self.mother.lastname)
                     continue
                 child = geneanet_to_gramps(None, level - 1, None, c)
-                if state.verbosity >= 2:
-                    print(_("=> Recursion on the child of ") + self.father.lastname + ' - ' +
-                          self.mother.lastname + ': ' + child.firstname + ' ' + child.lastname)
+                LOG.debug(_("=> Recursion on the child of %s - %s: %s %s"),
+                          self.father.lastname, self.mother.lastname, child.firstname, child.lastname)
                 self.add_child(child)
 
                 fam = []
@@ -277,18 +248,17 @@ class GFamily(GBase):
                         for f in fam:
                             f.recurse_children(level)
 
-                if state.verbosity >= 2:
-                    print(_("=> End of recursion on the child of ") + self.father.lastname +
-                          ' - ' + self.mother.lastname + ': ' + child.firstname + ' ' + child.lastname)
+                LOG.debug(_("=> End of recursion on the child of %s - %s: %s %s"),
+                          self.father.lastname, self.mother.lastname, child.firstname, child.lastname)
 
         if not loop:
             if cpt == 0:
-                if state.verbosity >= 1:
-                    print(_("Stopping exploration for family ") + self.father.firstname + " " + self.father.lastname +
-                          ' - ' + self.mother.firstname + " " + self.mother.lastname + _(" as there are no more children"))
+                LOG.info(_("Stopping exploration for family %s %s - %s %s as there are no more children"),
+                         self.father.firstname, self.father.lastname,
+                         self.mother.firstname, self.mother.lastname)
                 return
 
             if level >= state.LEVEL:
-                if state.verbosity >= 1:
-                    print(_("Stopping exploration for family ") + self.father.firstname + " " + self.father.lastname +
-                          ' - ' + self.mother.firstname + " " + self.mother.lastname + _(" as we reached level ") + str(level))
+                LOG.info(_("Stopping exploration for family %s %s - %s %s as we reached level %s"),
+                         self.father.firstname, self.father.lastname,
+                         self.mother.firstname, self.mother.lastname, level)
