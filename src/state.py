@@ -1,6 +1,7 @@
 # GeneanetForGramps - Shared runtime state, configuration, and i18n
 import logging
 import shutil
+import subprocess
 
 from gramps.gen.config import config
 from gramps.gen.const import GRAMPS_LOCALE as glocale, URL_MANUAL_PAGE
@@ -37,7 +38,15 @@ def close_selenium_driver():
     both hiding the browser window from every later call (which sees
     selenium_driver as still "open") and skipping whatever cleanup the
     caller runs right after this - which is exactly how the browser was
-    observed staying open at the end of an import."""
+    observed staying open at the end of an import.
+
+    On top of the polite quit(), also forcibly kill any leftover process
+    that still references our throwaway profile directory: some Chromium
+    builds (e.g. Ubuntu's snap-packaged chromium-browser) don't let
+    chromedriver reliably track/kill the browser process it spawned, so
+    quit() alone can leave a fully working window running. Matching on the
+    profile directory - unique to this one session - can only ever hit our
+    own browser, never an unrelated process."""
     global selenium_driver, selenium_profile_dir
     if selenium_driver is not None:
         try:
@@ -46,6 +55,10 @@ def close_selenium_driver():
             LOG.debug(_("Failed to close the Selenium browser cleanly"), exc_info=True)
         selenium_driver = None
     if selenium_profile_dir is not None:
+        try:
+            subprocess.run(["pkill", "-9", "-f", selenium_profile_dir], check=False)
+        except FileNotFoundError:
+            LOG.debug(_("pkill is not available to force-close a leftover browser process"))
         shutil.rmtree(selenium_profile_dir, ignore_errors=True)
         selenium_profile_dir = None
 

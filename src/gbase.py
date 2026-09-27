@@ -1,5 +1,6 @@
 # GeneanetForGramps - GBase shared base class
 import re
+import socket
 import tempfile
 import time
 from urllib.parse import urlparse
@@ -19,6 +20,15 @@ from gramps.gen.lib import (
 )
 
 
+def _free_tcp_port():
+    """Ask the OS for a currently-unused local port, so each session gets
+    its own remote-debugging port instead of a hardcoded one that can
+    collide with other tools or a leftover process on the same port."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
+
+
 class GBase:
 
     def __init__(self):
@@ -28,24 +38,23 @@ class GBase:
         if state.selenium_driver is None:
             options = Options()
             options.binary_location = "/usr/bin/chromium-browser"
-            # A dedicated, throwaway profile directory per session - without
-            # this, Chrome launched against the default profile can find it
-            # already locked by a leftover process from an earlier run (one
-            # that a fixed --remote-debugging-port used to silently attach
-            # to instead of spawning its own) and then never fully starts,
-            # leaving the window stuck on a blank "data:," page.
+            # A dedicated, throwaway profile directory per session, so a
+            # leftover process from an earlier run can never hold a lock on
+            # the profile a fresh session tries to start against.
             state.selenium_profile_dir = tempfile.mkdtemp(prefix="geneanetforgramps-chrome-")
             options.add_argument("--user-data-dir=" + state.selenium_profile_dir)
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--window-size=800,800")
-            # Do NOT force --remote-debugging-port to a fixed value: with an
-            # isolated profile dir there is no longer a stale process to
-            # collide with, and letting Selenium pick its own ephemeral port
-            # keeps chromedriver's ownership of (and ability to kill) the
-            # exact process it started - a fixed port previously made it
-            # attach to a leftover process instead, so quit() never closed
-            # the actual browser window.
+            # An explicit --remote-debugging-port is required for the
+            # chromedriver<->Chrome handshake to complete at all on some
+            # builds (e.g. Ubuntu's snap-packaged chromium-browser, whose
+            # confinement breaks the automatic port negotiation): without
+            # it, webdriver.Chrome() hangs forever instead of raising.
+            # Picking a fresh port per session (rather than a fixed one)
+            # avoids colliding with other tools or an unrelated leftover
+            # process using the same well-known port.
+            options.add_argument("--remote-debugging-port=%d" % _free_tcp_port())
             # Hide automation indicators so Cloudflare allows manual checkbox clicks
             options.add_argument("--disable-blink-features=AutomationControlled")
             options.add_experimental_option("excludeSwitches", ["enable-automation"])
