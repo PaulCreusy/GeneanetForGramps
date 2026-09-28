@@ -175,7 +175,6 @@ def scrape_person(purl):
     now lives on the Gramps side)."""
     LOG.info("Page considered: %s", purl)
     driver = get_driver()
-    driver.get(purl)
 
     # Wait for the real page content to appear, tolerating a Cloudflare
     # challenge that can be shown more than once (e.g. a second checkbox
@@ -183,41 +182,61 @@ def scrape_person(purl):
     # the actual target element instead of trusting the page title, which
     # is also localized (French on this site) and unreliable to match
     # reliably against a fixed set of English substrings.
-    total_timeout = 180
+    #
+    # Some other, unrelated redirect page can also leave the browser stuck
+    # (neither the person page, nor a recognizable Cloudflare/login page) -
+    # observed ending an import outright. Rather than waiting on that one
+    # navigation forever, the wait is split into bounded attempts that each
+    # re-issue the request from scratch: a transient redirect quietly heals
+    # itself on the next try instead of hard-failing the whole import.
+    max_attempts = 3
+    per_attempt_timeout = 60
     poll_interval = 2
-    elapsed = 0
     notice_shown = False
     login_attempted = False
-    while True:
-        try:
-            found = bool(driver.find_elements(By.ID, "person-title"))
-            current_url = driver.current_url
-        except WebDriverException:
-            found, current_url = False, ""
+    found = False
+    for attempt in range(1, max_attempts + 1):
+        driver.get(purl)
+        elapsed = 0
+        while elapsed < per_attempt_timeout:
+            try:
+                found = bool(driver.find_elements(By.ID, "person-title"))
+                current_url = driver.current_url
+            except WebDriverException:
+                found, current_url = False, ""
+
+            if found:
+                break
+
+            if ('connexion' in current_url or 'login' in current_url) and not login_attempted:
+                login_attempted = True
+                LOG.info("Geneanet login required for %s.", purl)
+                if not _do_login(driver, purl):
+                    raise GeneanetAccessError(
+                        "Geneanet requires logging in (possibly behind a CAPTCHA) for %s, "
+                        "and auto-login could not complete it." % purl)
+                continue
+
+            if not notice_shown:
+                LOG.warning("Cloudflare verification detected. Please complete the challenge in the browser window.")
+                notice_shown = True
+
+            time.sleep(poll_interval)
+            elapsed += poll_interval
 
         if found:
             break
 
-        if ('connexion' in current_url or 'login' in current_url) and not login_attempted:
-            login_attempted = True
-            LOG.info("Geneanet login required for %s.", purl)
-            if not _do_login(driver, purl):
-                raise GeneanetAccessError(
-                    "Geneanet requires logging in (possibly behind a CAPTCHA) for %s, "
-                    "and auto-login could not complete it." % purl)
-            continue
+        LOG.warning(
+            "The page for %s did not resolve to a person page within %ds "
+            "(attempt %d/%d, ended up on %s) - retrying with a fresh request.",
+            purl, per_attempt_timeout, attempt, max_attempts, driver.current_url)
 
-        if not notice_shown:
-            LOG.warning("Cloudflare verification detected. Please complete the challenge in the browser window.")
-            notice_shown = True
-
-        if elapsed >= total_timeout:
-            raise GeneanetAccessError(
-                "The page for %s never finished loading real content "
-                "(Cloudflare check likely still pending)." % purl)
-
-        time.sleep(poll_interval)
-        elapsed += poll_interval
+    if not found:
+        raise GeneanetAccessError(
+            "The page for %s never resolved to a person page after %d attempts "
+            "(Cloudflare check likely still pending, or the site kept redirecting "
+            "elsewhere)." % (purl, max_attempts))
 
     LOG.debug("URL: %s", driver.current_url)
     LOG.debug("Title: %s", driver.title)
