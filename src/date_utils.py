@@ -52,20 +52,23 @@ def format_year(date):
 
 def format_iso(date_tuple):
     year, month, day = date_tuple
-    month = str(month).zfill(2)
-    day = str(day).zfill(2)
+    # The None/0 checks below must run on the original int values: stringifying
+    # first (e.g. via zfill) turned month/day 0 into "00", which never equals
+    # the int 0, so the month-less/day-less branches never triggered and a
+    # year-only date like (1728, 0, 0) rendered as "1728-00-00" instead of
+    # "1728" - a false mismatch against Geneanet's own year-only "1728".
     if year is None or year == 0:
         return ''
     elif month is None or month == 0:
         return str(year)
     elif day is None or day == 0:
-        return '%s-%s' % (year, month)
-    return '%s-%s-%s' % (year, month, day)
+        return '%s-%s' % (year, str(month).zfill(2))
+    return '%s-%s-%s' % (year, str(month).zfill(2), str(day).zfill(2))
 
 
 def format_noniso(date_tuple):
     day, month, year = date_tuple
-    return (format_iso(year, month, day))
+    return format_iso((year, month, day))
 
 
 def convert_date(datetab, lang='fr'):

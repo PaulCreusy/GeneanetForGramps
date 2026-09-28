@@ -74,7 +74,7 @@ class GeneanetForGramps(PluginWindows.ToolManagedWindowBatch):
         self.__get_menu_options()
         hdr = _('Importing from %s for user %s') % (self.purl, self.gid)
         msg = _('Geneanet Import into Gramps')
-        state.progress = ProgressMeter(msg, hdr)
+        state.progress = ProgressMeter(msg, hdr, can_cancel=True)
         state.progress.set_pass(hdr, 100, mode=ProgressMeter.MODE_ACTIVITY)
         LOG.info(msg)
         state.GUIMODE = True

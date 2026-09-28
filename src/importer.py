@@ -4,7 +4,7 @@ import sys
 import src.state as state
 from src.state import _, LOG
 from src.gperson import GPerson
-from src.exceptions import GeneanetAccessError
+from src.exceptions import GeneanetAccessError, ImportCancelled
 from gramps.gui.dialog import ErrorDialog
 
 
@@ -28,6 +28,13 @@ def _dates_conflict(gramps_date, geneanet_date):
 
 
 def geneanet_to_gramps(p, level, gid, url):
+    # Every person fetched during the (possibly deep) recursive import goes
+    # through here first, so this is the one place that needs to check for
+    # a user-requested Stop - raising unwinds the whole recursion instead of
+    # fetching and reporting a conflict for every remaining person.
+    if state.GUIMODE and state.progress and state.progress.get_cancelled():
+        raise ImportCancelled()
+
     if not p:
         p = GPerson(level)
     p.from_geneanet(url)
@@ -93,6 +100,8 @@ def g2gaction(gid, purl):
                 ErrorDialog(_("Geneanet import stopped"), detail)
             else:
                 LOG.error(_("Geneanet import stopped."))
+        except ImportCancelled:
+            LOG.info(_("Geneanet import cancelled by the user."))
     finally:
         state.close_worker()
         if state.GUIMODE:
