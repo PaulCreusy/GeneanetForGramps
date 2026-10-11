@@ -1,0 +1,11 @@
+[
+  {
+    "t": "Tool",
+    "i": "Import Geneanet data for Gramps",
+    "n": "Import Geneanet data for Gramps",
+    "v": "1.1.0",
+    "g": "6.0",
+    "d": "Extension to import data from Geneanet into Gramps.",
+    "z": "GeneanetForGramps.addon.tgz"
+  }
+]
