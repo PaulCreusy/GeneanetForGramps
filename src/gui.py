@@ -2,6 +2,7 @@
 import src.state as state
 from src.state import _, LOG, CONFIG, ROOTURL, save_config
 from src.importer import g2gaction
+from src.credentials import get_credentials, save_credentials, CREDENTIALS_FILE
 
 from gramps.gui.plug import MenuToolOptions, PluginWindows
 from gramps.gen.plug.menu import StringOption, PersonOption, BooleanOption, NumberOption
@@ -56,6 +57,27 @@ class GeneanetForGrampsOptions(MenuToolOptions):
         self.__gui_verb.set_help(_("Verbosity level from 0 (minimal) to 3 (very verbose)"))
         menu.add_option(category_name, "gui_verb", self.__gui_verb)
 
+        # Geneanet occasionally forces a login (behind Cloudflare/CAPTCHA)
+        # before it will serve a page. Without these, the only way to
+        # configure auto-login was to hand-edit credentials.ini, which the
+        # failed-login error message did not explain clearly. Pre-fill the
+        # username (never the password) from any already-saved credentials
+        # so this reads as "currently configured", not "re-enter every time".
+        saved_username, _saved_password = get_credentials()
+        login_category = _("Geneanet Login (optional)")
+
+        self.__gui_username = StringOption(_("Geneanet username (email)"), saved_username or "")
+        self.__gui_username.set_help(
+            _("Only needed if Geneanet asks you to log in to view some pages. "
+              "Leave blank to keep the currently saved username, if any."))
+        menu.add_option(login_category, "gui_username", self.__gui_username)
+
+        self.__gui_password = StringOption(_("Geneanet password"), "")
+        self.__gui_password.set_help(
+            _("Stored in plain text in %s on this computer. "
+              "Leave blank to keep the currently saved password, if any.") % CREDENTIALS_FILE)
+        menu.add_option(login_category, "gui_password", self.__gui_password)
+
 
 class GeneanetForGramps(PluginWindows.ToolManagedWindowBatch):
 
@@ -99,4 +121,14 @@ class GeneanetForGramps(PluginWindows.ToolManagedWindowBatch):
         LOG.debug(_("GID: %s, URL: %s, ascendants=%s descendants=%s spouses=%s level=%s force=%s"),
                   self.gid, self.purl, state.ascendants, state.descendants,
                   state.spouses, state.LEVEL, state.force)
+
+        # Both fields are required to (re)save credentials: a lone username
+        # with a blank password would otherwise overwrite - and lose - a
+        # previously saved password the user intended to keep unchanged.
+        username = self.options.menu.get_option_by_name('gui_username').get_value().strip()
+        password = self.options.menu.get_option_by_name('gui_password').get_value()
+        if username and password:
+            save_credentials(username, password)
+            LOG.info(_("Saved Geneanet login for %s to %s"), username, CREDENTIALS_FILE)
+
         save_config()

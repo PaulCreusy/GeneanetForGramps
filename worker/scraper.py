@@ -106,10 +106,10 @@ def _do_login(driver, purl):
     """Fill the Geneanet login form with stored credentials then navigate to purl."""
     username, password = get_credentials()
     if not username:
-        LOG.warning("No credentials found. Populate %s to enable auto-login:", CREDENTIALS_FILE)
-        LOG.warning("  [geneanet]")
-        LOG.warning("  username = your@email.com")
-        LOG.warning("  password = yourpassword")
+        LOG.warning(
+            "No Geneanet credentials configured. In Gramps, open this tool's options "
+            "and fill in 'Geneanet username (email)' and 'Geneanet password' under "
+            "'Geneanet Login (optional)' - they are saved to %s.", CREDENTIALS_FILE)
         return False
     try:
         wait = WebDriverWait(driver, 10)
@@ -213,8 +213,11 @@ def scrape_person(purl):
                 LOG.info("Geneanet login required for %s.", purl)
                 if not _do_login(driver, purl):
                     raise GeneanetAccessError(
-                        "Geneanet requires logging in (possibly behind a CAPTCHA) for %s, "
-                        "and auto-login could not complete it." % purl)
+                        "Geneanet requires logging in to view %s, and auto-login could not "
+                        "complete it (no credentials configured, or login failed/blocked by "
+                        "a CAPTCHA). Open this tool's options and fill in 'Geneanet username "
+                        "(email)' and 'Geneanet password' under 'Geneanet Login (optional)', "
+                        "then try again." % purl)
                 continue
 
             if not notice_shown:
