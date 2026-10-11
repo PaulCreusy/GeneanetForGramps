@@ -46,6 +46,17 @@ def _is_up_to_date():
         return False
 
 
+def _run(cmd):
+    """Like subprocess.run(cmd, check=True), but captures stderr so a
+    failure's actual reason (e.g. "ensurepip is not available") reaches the
+    caller instead of just a bare "exit status 1"."""
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(
+            result.returncode, cmd, output=result.stdout, stderr=result.stderr)
+    return result
+
+
 def _check_flatpak():
     # A Flatpak-sandboxed Gramps typically cannot run venv/pip/chromium as
     # arbitrary subprocesses without explicit extra permissions - fail with
@@ -77,18 +88,23 @@ def ensure_worker_env(progress_callback=None):
     os.makedirs(os.path.dirname(WORKER_ENV_DIR), exist_ok=True)
 
     try:
-        subprocess.run([sys.executable, "-m", "venv", WORKER_ENV_DIR], check=True)
-        subprocess.run(
-            [_venv_python(), "-m", "pip", "install", "--upgrade", "pip"],
-            check=True,
-        )
-        subprocess.run(
-            [_venv_python(), "-m", "pip", "install", "-r", REQUIREMENTS_FILE],
-            check=True,
-        )
+        _run([sys.executable, "-m", "venv", WORKER_ENV_DIR])
+        _run([_venv_python(), "-m", "pip", "install", "--upgrade", "pip"])
+        _run([_venv_python(), "-m", "pip", "install", "-r", REQUIREMENTS_FILE])
     except (OSError, subprocess.CalledProcessError) as e:
+        detail = getattr(e, "stderr", "") or str(e)
+        hint = ""
+        if "ensurepip" in detail:
+            # The most common cause on Debian/Ubuntu: distro packaging
+            # splits venv's pip bootstrap into a separate package that is
+            # not installed by default. The bare CalledProcessError (just
+            # "exit status 1") otherwise gives no clue why venv creation
+            # failed.
+            hint = ("\n\nThis usually means the Python 'venv' module's pip bootstrap "
+                    "is missing. On Debian/Ubuntu, install it with: "
+                    "sudo apt install python3-venv")
         raise WorkerEnvError(
-            "Failed to set up the scraper worker environment: %s" % e) from e
+            "Failed to set up the scraper worker environment: %s%s" % (detail, hint)) from e
 
     with open(_MARKER_FILE, "w") as f:
         f.write(_requirements_hash())
