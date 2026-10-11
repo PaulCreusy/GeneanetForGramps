@@ -165,6 +165,19 @@ def _do_login(driver, purl):
         return False
 
 
+def _is_profile_link(a):
+    """True if this <a> can lead to another person's page. Footnote anchors
+    next to a union (e.g. href="#note-wed-1", the marriage note) are also
+    <a> tags without an image: taken for the spouse's link, they overwrote
+    the real one and resolved to the site root plus a fragment, a page the
+    scraper then waited on until Cloudflare-timeout."""
+    href = a.xpath('attribute::href')
+    if not href:
+        return False
+    href = str(href[0]).strip()
+    return bool(href) and not href.startswith(('#', 'javascript:', 'mailto:'))
+
+
 def scrape_person(purl):
     """Fetch and parse a Geneanet person page. Returns a plain dict of the
     fields the caller previously found on GPerson.g_* / spouseref / fref /
@@ -391,6 +404,8 @@ def scrape_person(purl):
         sname.append("")
         sref.append("")
         for a in spouse.xpath('a'):
+            if not _is_profile_link(a):
+                continue
             sosa = a.find('img')
             if sosa is None:
                 try:
@@ -444,6 +459,8 @@ def scrape_person(purl):
             # the union).
             cname, cref = "", None
             for a in c.xpath('a'):
+                if not _is_profile_link(a):
+                    continue
                 sosa = a.find('img')
                 if sosa is None:
                     try:
@@ -473,6 +490,8 @@ def scrape_person(purl):
             # name/ref.
             pname, pref = "", ""
             for a in p.xpath('a'):
+                if not _is_profile_link(a):
+                    continue
                 sosa = a.find('img')
                 if sosa is None:
                     try:
