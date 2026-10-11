@@ -57,6 +57,23 @@ def _run(cmd):
     return result
 
 
+def _check_ensurepip():
+    """`python3 -m venv` on Debian/Ubuntu swallows the actual ensurepip
+    failure: venv's own top-level error handler only prints str(exc) for
+    the CalledProcessError it gets back, which is just the inner command
+    list and "exit status 1" - the real "No module named ensurepip"
+    reason never reaches our captured stderr at all. Check for it
+    directly and up front instead of trying to parse that unhelpful text
+    after the fact."""
+    result = subprocess.run([sys.executable, "-c", "import ensurepip"], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise WorkerEnvError(
+            "Cannot create the scraper worker's Python environment: the 'ensurepip' "
+            "module is not available for %s.\n\n"
+            "On Debian/Ubuntu, install it with: sudo apt install python3-venv\n\n%s"
+            % (sys.executable, (result.stderr or result.stdout or "").strip()))
+
+
 def _check_flatpak():
     # A Flatpak-sandboxed Gramps typically cannot run venv/pip/chromium as
     # arbitrary subprocesses without explicit extra permissions - fail with
@@ -79,6 +96,8 @@ def ensure_worker_env(progress_callback=None):
     if _is_up_to_date():
         return _venv_python()
 
+    _check_ensurepip()
+
     def report(msg):
         LOG.info(msg)
         if progress_callback:
@@ -92,19 +111,15 @@ def ensure_worker_env(progress_callback=None):
         _run([_venv_python(), "-m", "pip", "install", "--upgrade", "pip"])
         _run([_venv_python(), "-m", "pip", "install", "-r", REQUIREMENTS_FILE])
     except (OSError, subprocess.CalledProcessError) as e:
-        detail = getattr(e, "stderr", "") or str(e)
-        hint = ""
-        if "ensurepip" in detail:
-            # The most common cause on Debian/Ubuntu: distro packaging
-            # splits venv's pip bootstrap into a separate package that is
-            # not installed by default. The bare CalledProcessError (just
-            # "exit status 1") otherwise gives no clue why venv creation
-            # failed.
-            hint = ("\n\nThis usually means the Python 'venv' module's pip bootstrap "
-                    "is missing. On Debian/Ubuntu, install it with: "
-                    "sudo apt install python3-venv")
+        # venv/pip can fail without ever populating .stderr (see
+        # _check_ensurepip's docstring for one confirmed case) - fall back
+        # to .output/.stdout, and only then to the bare str(e), so the
+        # dialog never regresses to a contentless "exit status 1" again.
+        detail = "\n".join(filter(None, [
+            getattr(e, "stderr", None), getattr(e, "stdout", None),
+        ])).strip() or str(e)
         raise WorkerEnvError(
-            "Failed to set up the scraper worker environment: %s%s" % (detail, hint)) from e
+            "Failed to set up the scraper worker environment: %s" % detail) from e
 
     with open(_MARKER_FILE, "w") as f:
         f.write(_requirements_hash())
