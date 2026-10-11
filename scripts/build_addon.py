@@ -26,6 +26,7 @@ TOP_LEVEL_FILES = [
     GPR_FILE, "GeneanetForGramps.py", "GeneanetForGramps.png",
     "requirements-worker.txt", "README.md", "LICENSE",
 ]
+TOOL_PTYPE = 2
 PACKAGE_DIRS = ["src", "worker"]
 PACKAGE_EXTENSIONS = (".py",)
 
@@ -91,7 +92,10 @@ def main():
                     arcname=os.path.join(ADDON_DIR, arc_path), filter=reset_owner)
 
     listing = [{
-        "t": "Tool",
+        # Gramps' PTYPE integer for a tool (gramps.gen.plug.TOOL == 2): the
+        # Addon Manager indexes PTYPE_STR with this value, so a string such
+        # as "Tool" raises KeyError when the addon list is displayed.
+        "t": TOOL_PTYPE,
         "i": meta["id"],
         "n": meta["name"],
         "v": meta["version"],

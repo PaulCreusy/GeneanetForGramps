@@ -1,6 +1,6 @@
 [
   {
-    "t": "Tool",
+    "t": 2,
     "i": "Import Geneanet data for Gramps",
     "n": "Import Geneanet data for Gramps",
     "v": "1.1.0",
