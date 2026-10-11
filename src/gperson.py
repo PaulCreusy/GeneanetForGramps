@@ -7,7 +7,21 @@ from src.exceptions import GeneanetAccessError
 
 from gramps.gen.db import DbTxn
 from gramps.gen.errors import HandleError
-from gramps.gen.lib import Person, Name, NameType, EventType, Url, UrlType
+from gramps.gen.lib import Person, Name, NameType, EventType, Url, UrlType, Attribute, AttributeType
+
+
+def _occupation_type():
+    """Gramps 6.0 has a native Occupation attribute type (shown as
+    "Profession" in French); older versions only get a custom one."""
+    code = getattr(AttributeType, "OCCUPATION", None)
+    if code is not None:
+        return AttributeType(code)
+    return AttributeType((AttributeType.CUSTOM, "Occupation"))
+
+
+def _is_occupation(attr_type):
+    code = getattr(AttributeType, "OCCUPATION", None)
+    return attr_type == (code if code is not None else "Occupation")
 
 
 class GPerson(GBase):
@@ -25,6 +39,7 @@ class GPerson(GBase):
         self.deathdate = None
         self.deathplace = None
         self.deathplacecode = None
+        self.occupation = None
         self.gid = None
         self.grampsp = None
         # Father and Mother and Spouses GPersons
@@ -43,6 +58,7 @@ class GPerson(GBase):
         self.g_deathdate = None
         self.g_deathplace = None
         self.g_deathplacecode = None
+        self.g_occupation = None
         self.url = ""
         self.spouseref = []
         self.fref = ""
@@ -63,6 +79,7 @@ class GPerson(GBase):
         self._smartcopy("deathdate")
         self._smartcopy("deathplace")
         self._smartcopy("deathplacecode")
+        self._smartcopy("occupation")
 
     def from_geneanet(self, purl):
         ''' Delegate the actual page fetch/parse to the isolated scraper
@@ -95,6 +112,7 @@ class GPerson(GBase):
             self.g_deathdate = data['g_deathdate']
             self.g_deathplace = data['g_deathplace']
             self.g_deathplacecode = data['g_deathplacecode']
+            self.g_occupation = data.get('occupation')
             self.spouseref = data['spouseref']
             self.marriagedate = data['marriagedate']
             self.marriageplace = data['marriageplace']
@@ -195,6 +213,18 @@ class GPerson(GBase):
             for ev in ['birth', 'death']:
                 self.get_or_create_event(grampsp, ev, tran)
 
+            if self.occupation:
+                for attr in grampsp.get_attribute_list():
+                    if _is_occupation(attr.get_type()):
+                        attr.set_value(self.occupation)
+                        break
+                else:
+                    attr = Attribute()
+                    attr.set_type(_occupation_type())
+                    attr.set_value(self.occupation)
+                    grampsp.add_attribute(attr)
+                LOG.info(_("Occupation: %s"), self.occupation)
+
             # Store the importation place as an Internet note
             if self.url != "":
                 found = False
@@ -271,6 +301,11 @@ class GPerson(GBase):
                 LOG.debug(_("No Death date"))
         except AttributeError:
             LOG.warning(_("Unable to retrieve death date for id %s"), self.gid)
+
+        for attr in self.grampsp.get_attribute_list():
+            if _is_occupation(attr.get_type()):
+                self.occupation = attr.get_value()
+                break
 
         # Deal with the parents now, as they necessarily exist
         self.father = GPerson(self.level + 1)

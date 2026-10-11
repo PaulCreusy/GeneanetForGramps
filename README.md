@@ -72,6 +72,11 @@ Open **Tools ▸ Family Tree Processing ▸ Import Geneanet data for Gramps**.
 | Verbosity | 0 (quiet) to 3 (very verbose), logged to the terminal Gramps was started from. |
 | Geneanet username / password | Optional, see below. |
 
+The occupation shown on the Geneanet page, when there is one, is stored in an
+**Occupation** attribute on the person (displayed as *Profession* in a French
+Gramps; on Gramps older than 6.0 it is a custom attribute named `Occupation`).
+An existing value is only replaced when **Force Import** is enabled.
+
 A progress window with a **Stop** button is shown during the import. Persons
 already in your tree are detected by their Geneanet URL, then by name and
 dates. If the same person differs between Gramps and Geneanet (name, birth or
