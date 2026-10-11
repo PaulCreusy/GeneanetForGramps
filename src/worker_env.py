@@ -86,12 +86,28 @@ def _check_flatpak():
             "(e.g. via Flatseal), or use a non-Flatpak install of Gramps.")
 
 
+def _check_snap():
+    # Gramps' snap is strictly confined: it runs on its own bundled Python
+    # (whose ensurepip cannot build a venv), sees only the snap's own root
+    # filesystem (so neither the host's Python nor the host's Chromium are
+    # reachable) and has HOME redirected to ~/snap/gramps/<rev>. None of the
+    # pieces the worker relies on can work there, so say so up front rather
+    # than failing with an obscure venv/browser error.
+    if os.environ.get("SNAP") or sys.executable.startswith("/snap/"):
+        raise WorkerEnvError(
+            "GeneanetForGramps cannot run inside the snap-packaged Gramps: the snap "
+            "is sandboxed and cannot create the scraper's Python environment or start "
+            "your system's browser. Install Gramps another way (e.g. 'sudo apt install "
+            "gramps', or a pip/pipx install) and install the addon there.")
+
+
 def ensure_worker_env(progress_callback=None):
     """Create (or refresh) the dedicated worker venv if needed. Returns the
     path to its python executable. progress_callback(message), if given, is
     called with human-readable status updates during a first-time setup
     (which downloads/builds Selenium + lxml, and can take a while)."""
     _check_flatpak()
+    _check_snap()
 
     if _is_up_to_date():
         return _venv_python()

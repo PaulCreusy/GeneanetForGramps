@@ -16,6 +16,10 @@ You do **not** need to install Selenium or lxml in Gramps' own Python
 environment: the addon creates and manages its own private environment (see
 [How it works](#how-it-works)).
 
+> **Snap-packaged Gramps is not supported**: the snap is strictly sandboxed, so it
+> can neither build the addon's Python environment nor start your system's
+> browser. Install Gramps with `apt` or `pip`/`pipx` instead.
+>
 > Flatpak-packaged Gramps is not supported out of the box: it cannot spawn the
 > external Python environment and the browser the addon relies on. Use a
 > native install, or grant the Flatpak the needed permissions (e.g. with Flatseal).
