@@ -1,0 +1,5 @@
+# Dependencies of the isolated scraper worker (worker/), installed into its
+# own dedicated venv by src/worker_env.py - never into Gramps' own Python
+# environment. Keep this in sync with worker/scraper.py's imports.
+selenium==4.34.2
+lxml

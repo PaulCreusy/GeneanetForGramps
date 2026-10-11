@@ -1,10 +1,10 @@
 # GeneanetForGramps - Shared runtime state, configuration, and i18n
 import logging
-import shutil
-import subprocess
 
 from gramps.gen.config import config
 from gramps.gen.const import GRAMPS_LOCALE as glocale, URL_MANUAL_PAGE
+
+from src.constants import ROOTURL  # noqa: F401 - re-exported for `from src.state import ROOTURL`
 
 try:
     _trans = glocale.get_addon_translator(__file__)
@@ -31,40 +31,33 @@ def configure_logging():
         LOG.addHandler(handler)
 
 
-def close_selenium_driver():
-    """Best-effort cleanup of the shared Selenium driver that ALWAYS clears
-    selenium_driver, even if quit() itself fails. A narrower except here
-    (e.g. only Selenium's own WebDriverException) can leave a failed quit()
-    both hiding the browser window from every later call (which sees
-    selenium_driver as still "open") and skipping whatever cleanup the
-    caller runs right after this - which is exactly how the browser was
-    observed staying open at the end of an import.
+def get_worker_client():
+    """Return the shared WorkerClient, starting the scraper worker
+    subprocess (in its own dedicated venv) on first use."""
+    global worker_client
+    if worker_client is None:
+        from src.worker_client import WorkerClient
+        worker_client = WorkerClient()
+        worker_client.start()
+    return worker_client
 
-    On top of the polite quit(), also forcibly kill any leftover process
-    that still references our throwaway profile directory: some Chromium
-    builds (e.g. Ubuntu's snap-packaged chromium-browser) don't let
-    chromedriver reliably track/kill the browser process it spawned, so
-    quit() alone can leave a fully working window running. Matching on the
-    profile directory - unique to this one session - can only ever hit our
-    own browser, never an unrelated process."""
-    global selenium_driver, selenium_profile_dir
-    if selenium_driver is not None:
+
+def close_worker():
+    """Best-effort shutdown of the shared worker subprocess that ALWAYS
+    clears worker_client, even if the clean shutdown itself fails - a
+    narrower except here can leave a failed close() both hiding the worker
+    from every later call (which sees worker_client as still "open") and
+    skipping whatever cleanup the caller runs right after this."""
+    global worker_client
+    if worker_client is not None:
         try:
-            selenium_driver.quit()
+            worker_client.close()
         except Exception:
-            LOG.debug(_("Failed to close the Selenium browser cleanly"), exc_info=True)
-        selenium_driver = None
-    if selenium_profile_dir is not None:
-        try:
-            subprocess.run(["pkill", "-9", "-f", selenium_profile_dir], check=False)
-        except FileNotFoundError:
-            LOG.debug(_("pkill is not available to force-close a leftover browser process"))
-        shutil.rmtree(selenium_profile_dir, ignore_errors=True)
-        selenium_profile_dir = None
+            LOG.debug(_("Failed to close the scraper worker cleanly"), exc_info=True)
+        worker_client = None
 
 
 TIMEOUT = 5
-ROOTURL = 'https://gw.geneanet.org/'
 WIKI_HELP_PAGE = '%s_-_Tools' % URL_MANUAL_PAGE
 WIKI_HELP_SEC = _('manual|GeneanetForGramps')
 
@@ -79,8 +72,7 @@ spouses = False
 LEVEL = 2
 GUIMODE = False
 progress = None
-selenium_driver = None
-selenium_profile_dir = None
+worker_client = None
 stop_on_error = False
 
 CONFIG_NAME = "geneanetforgramps"

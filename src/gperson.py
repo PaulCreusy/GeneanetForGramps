@@ -1,17 +1,10 @@
 # GeneanetForGramps - GPerson class
-import re
-import time
-import random
-from urllib.parse import urljoin, urlparse, parse_qs
-
 import src.state as state
 from src.state import _, LOG
 from src.gbase import GBase
-from src.date_utils import format_ca, format_year, convert_date, geneanet_strings
+from src.date_utils import format_year
 from src.exceptions import GeneanetAccessError
 
-from lxml import html
-from lxml.etree import ParserError, XMLSyntaxError, XPathEvalError
 from gramps.gen.db import DbTxn
 from gramps.gen.errors import HandleError
 from gramps.gen.lib import Person, Name, NameType, EventType, Url, UrlType
@@ -72,74 +65,15 @@ class GPerson(GBase):
         self._smartcopy("deathplacecode")
 
     def from_geneanet(self, purl):
-        ''' Use XPath to retrieve the details of a person
-        Used example from https://gist.github.com/IanHopkinson/ad45831a2fb73f537a79
-        and doc from https://www.w3schools.com/xml/xpath_axes.asp
-        and https://docs.python-guide.org/scenarios/scrape/
-
-        lxml can return _ElementUnicodeResult instead of str so cast
-        '''
+        ''' Delegate the actual page fetch/parse to the isolated scraper
+        worker process (see worker/scraper.py, driven via
+        state.get_worker_client()), and copy its result onto self.g_* -
+        this keeps Selenium/lxml out of Gramps' own Python process. '''
         LOG.debug(_("Purl: %s"), purl)
         if not purl:
             return ()
         try:
-            LOG.info(_("Page considered: %s"), purl)
-            driver = self.get_selenium_driver()
-
-            driver.get(purl)
-
-            # Wait for the real page content to appear, tolerating a
-            # Cloudflare challenge that can be shown more than once (e.g. a
-            # second checkbox click) and a login/CAPTCHA redirect happening
-            # in between. Poll for the actual target element instead of
-            # trusting the page title, which is also localized (French on
-            # this site) and unreliable to match reliably against a fixed
-            # set of English substrings.
-            from selenium.webdriver.common.by import By
-            from selenium.common.exceptions import WebDriverException
-
-            total_timeout = 180
-            poll_interval = 2
-            elapsed = 0
-            notice_shown = False
-            login_attempted = False
-            while True:
-                try:
-                    found = bool(driver.find_elements(By.ID, "person-title"))
-                    current_url = driver.current_url
-                except WebDriverException:
-                    found, current_url = False, ""
-
-                if found:
-                    break
-
-                if ('connexion' in current_url or 'login' in current_url) and not login_attempted:
-                    login_attempted = True
-                    LOG.info(_("Geneanet login required for %s."), purl)
-                    if not self._do_login(driver, purl):
-                        raise GeneanetAccessError(
-                            _("Geneanet requires logging in (possibly behind a CAPTCHA) for %s, "
-                              "and auto-login could not complete it.") % purl)
-                    continue
-
-                if not notice_shown:
-                    LOG.warning(_("Cloudflare verification detected. Please complete the challenge in the browser window."))
-                    notice_shown = True
-
-                if elapsed >= total_timeout:
-                    raise GeneanetAccessError(
-                        _("The page for %s never finished loading real content "
-                          "(Cloudflare check likely still pending).") % purl)
-
-                time.sleep(poll_interval)
-                elapsed += poll_interval
-
-            LOG.debug(_("URL: %s"), driver.current_url)
-            LOG.debug(_("Title: %s"), driver.title)
-
-            page_content = driver.page_source
-            with open("/tmp/geneanet-selenium.html", "w", encoding="utf-8") as f:
-                f.write(page_content)
+            data = state.get_worker_client().scrape(purl)
         except GeneanetAccessError:
             # Always fatal: never continue parsing a page we could not
             # legitimately reach, as that produces phantom, nameless persons.
@@ -149,247 +83,25 @@ class GPerson(GBase):
             if state.stop_on_error:
                 raise
         else:
-            try:
-                tree = html.fromstring(page_content)
-            except (ParserError, XMLSyntaxError):
-                LOG.error(_("Unable to perform HTML analysis"))
-
-            self.url = purl
-
-            # The page's language is set by its own "lang=" URL parameter,
-            # independent from the Gramps UI locale (gettext _()) - do not
-            # conflate the two or keyword matching silently finds nothing.
-            page_lang = parse_qs(urlparse(purl).query).get('lang', ['fr'])[0]
-            strings = geneanet_strings(page_lang)
-
-            # Wait after a Geneanet request to be fair with the site
-            # between 2 and 7 seconds
-            time.sleep(random.randint(2, 7))
-            try:
-                # Should return M or F
-                sex = tree.xpath('//div[@id="person-title"]//img/attribute::alt')
-                self.g_sex = sex[0]
-                # Seems we have a french codification on the site
-                if sex[0][0] == 'H':
-                    self.g_sex = 'M'
-                elif sex[0][0] == 'F':
-                    self.g_sex = 'F'
-            except IndexError:
-                self.g_sex = 'U'
-            try:
-                name = tree.xpath('//span[@class="gw-individual-info-name-firstname"]//a/text()')
-                self.g_firstname = " ".join(str(name[0]).split()).title()
-
-                if self.g_firstname == "":
-                    LOG.warning(_("Name not detected, html has changed"))
-
-                name = tree.xpath('//span[@class="gw-individual-info-name-lastname"]//a/text()')
-                self.g_lastname = " ".join(str(name[0]).split()).title()
-            except IndexError:
-                LOG.warning(_("Name not detected"))
-                self.g_firstname = ""
-                self.g_lastname = ""
+            self.url = data['url']
+            self.g_sex = data['g_sex']
+            self.g_firstname = data['g_firstname']
+            self.g_lastname = data['g_lastname']
             LOG.info(_("==> GENEANET Name (L%d): %s %s"), self.level, self.g_firstname, self.g_lastname)
             LOG.debug(_("Sex: %s"), self.g_sex)
-            try:
-                sstring = '//li[contains(., "' + strings['born'] + '")]/text()'
-                LOG.debug("sstring: %s", sstring)
-                birth = tree.xpath(sstring)
-            except XPathEvalError:
-                birth = [""]
-            LOG.debug(_("birth: %s"), birth)
-            try:
-                sstring = '//li[contains(., "' + strings['deceased'] + '")]/text()'
-                LOG.debug("sstring: %s", sstring)
-                death = tree.xpath(sstring)
-            except XPathEvalError:
-                death = [""]
-            LOG.debug(_("death: %s"), death)
-            try:
-                # sometime parents are using circle, sometimes disc !
-                parents = tree.xpath(
-                    '//ul[not(descendant-or-self::*[@class="fiche_union"])]//li[@style="vertical-align:middle;list-style-type:disc" or @style="vertical-align:middle;list-style-type:circle"]')
-            except XPathEvalError:
-                parents = []
-            try:
-                spouses = tree.xpath('//ul[@class="fiche_union"]/li')
-            except XPathEvalError:
-                spouses = []
-            try:
-                ld = convert_date(birth[0].split('-')[0].split()[1:], page_lang)
-                LOG.debug(_("Birth: %s"), ld)
-                self.g_birthdate = format_ca(ld, page_lang)
-            except (IndexError, ValueError, AttributeError):
-                LOG.debug(_("Error in birth date process"), exc_info=True)
-                self.g_birthdate = None
-            try:
-                self.g_birthplace = str(
-                    ' '.join(birth[0].split('-')[1:]).split(',')[0].strip()).title()
-                LOG.debug(_("Birth place: %s"), self.g_birthplace)
-            except (IndexError, AttributeError):
-                self.g_birthplace = None
-            try:
-                self.g_birthplacecode = str(
-                    ' '.join(birth[0].split('-')[1:]).split(',')[1]).strip()
-                match = re.search(r'\d\d\d\d\d', self.g_birthplacecode)
-                if not match:
-                    self.g_birthplacecode = None
-                else:
-                    LOG.debug(_("Birth place code: %s"), self.g_birthplacecode)
-            except (IndexError, AttributeError):
-                self.g_birthplacecode = None
-            try:
-                ld = convert_date(death[0].split('-')[0].split()[1:], page_lang)
-                LOG.debug(_("Death: %s"), ld)
-                self.g_deathdate = format_ca(ld, page_lang)
-            except (IndexError, ValueError, AttributeError):
-                self.g_deathdate = None
-            try:
-                self.g_deathplace = str(
-                    ' '.join(death[0].split('-')[1:]).split(',')[0]).strip().title()
-                LOG.debug(_("Death place: %s"), self.g_deathplace)
-            except (IndexError, AttributeError):
-                self.g_deathplace = None
-            try:
-                self.g_deathplacecode = str(
-                    ' '.join(death[0].split('-')[1:]).split(',')[1]).strip()
-                match = re.search(r'\d\d\d\d\d', self.g_deathplacecode)
-                if not match:
-                    self.g_deathplacecode = None
-                else:
-                    LOG.debug(_("Death place code: %s"), self.g_deathplacecode)
-            except (IndexError, AttributeError):
-                self.g_deathplacecode = None
-
-            s = 0
-            sname = []
-            sref = []
-            marriage = []
-            for spouse in spouses:
-                # Pre-fill a slot for this spouse before looking for its <a>
-                # tag: a fully private/hidden spouse has none at all, and
-                # without this, sname[s]/sref[s] below would index past the
-                # end of the list and crash.
-                sname.append("")
-                sref.append("")
-                for a in spouse.xpath('a'):
-                    sosa = a.find('img')
-                    if sosa is None:
-                        try:
-                            sname[s] = str(a.xpath('text()')[0]).title()
-                            LOG.debug(_("Spouse name: %s"), sname[s])
-                        except IndexError:
-                            sname[s] = ""
-                        try:
-                            sref[s] = str(a.xpath('attribute::href')[0])
-                            LOG.debug(_("Spouse ref: %s"), urljoin(state.ROOTURL, sref[s]))
-                        except IndexError:
-                            sref[s] = ""
-
-                # An empty href means Geneanet shows this spouse without a
-                # clickable profile (private/hidden individual) - keep an
-                # empty ref rather than fabricating a link to the site root.
-                self.spouseref.append(urljoin(state.ROOTURL, sref[s]) if sref[s] else "")
-
-                try:
-                    marriage.append(str(spouse.xpath('em/text()')[0]))
-                except IndexError:
-                    marriage.append(None)
-                try:
-                    ld = convert_date(marriage[s].split(',')[0].split()[1:], page_lang)
-                    LOG.debug(_("Married: %s"), ld)
-                    self.marriagedate.append(format_ca(ld, page_lang))
-                except (AttributeError, IndexError, ValueError):
-                    self.marriagedate.append(None)
-                try:
-                    self.marriageplace.append(str(marriage[s].split(',')[1][1:]).title())
-                    LOG.debug(_("Married place: %s"), self.marriageplace[s])
-                except (AttributeError, IndexError):
-                    self.marriageplace.append(None)
-                try:
-                    marriageplacecode = str(marriage[s].split(',')[2][1:])
-                    match = re.search(r'\d\d\d\d\d', marriageplacecode)
-                    if not match:
-                        self.marriageplacecode.append(None)
-                    else:
-                        LOG.debug(_("Married place code: %s"), marriageplacecode)
-                        self.marriageplacecode.append(marriageplacecode)
-                except (AttributeError, IndexError):
-                    self.marriageplacecode.append(None)
-
-                cnum = 0
-                clist = []
-                for c in spouse.xpath('ul/li'):
-                    # Reset for each child - a private/hidden child has no
-                    # <a> at all, and must not silently reuse the previous
-                    # child's name/ref (or leave cref undefined on the very
-                    # first child of the union).
-                    cname, cref = "", None
-                    for a in c.xpath('a'):
-                        sosa = a.find('img')
-                        if sosa is None:
-                            try:
-                                cname = c.xpath('a/text()')[0].title()
-                                LOG.debug(_("Child %d name: %s"), cnum, cname)
-                            except IndexError:
-                                cname = ""
-                            try:
-                                cref = urljoin(state.ROOTURL, str(a.xpath('attribute::href')[0]))
-                                LOG.debug(_("Child %d ref: %s"), cnum, cref)
-                            except IndexError:
-                                cref = None
-
-                    clist.append(cref)
-                    cnum = cnum + 1
-                self.childref.append(clist)
-                s = s + 1
-                # End spouse loop
-
-            self.fref = ""
-            self.mref = ""
-            prefl = []
-            for p in parents:
-                LOG.debug("%s", p.xpath('text()'))
-                texts = p.xpath('text()')
-                if texts and texts[0] == '\n':
-                    # Reset for each parent entry - a private/hidden parent
-                    # has no <a> at all, and must not silently reuse the
-                    # previous parent's name/ref.
-                    pname, pref = "", ""
-                    for a in p.xpath('a'):
-                        sosa = a.find('img')
-                        if sosa is None:
-                            try:
-                                pname = a.xpath('text()')[0].title()
-                            except IndexError:
-                                pname = ""
-                            try:
-                                pref = a.xpath('attribute::href')[0]
-                            except IndexError:
-                                pref = ""
-                            # only consider first valid link instead of overwriting with eg "seigneur de XYZ" or "propriétaire à XYZ":
-                            if pname and pref:
-                                break
-
-                    if pref:
-                        ref = urljoin(state.ROOTURL, str(pref))
-                        LOG.info(_("Parent name: %s (%s)"), pname, ref)
-                        prefl.append(ref)
-                    else:
-                        # Geneanet shows this parent without a clickable
-                        # profile (private/hidden individual) - keep the
-                        # slot empty rather than fabricating a link to the
-                        # site root.
-                        LOG.info(_("Parent has no navigable link (private profile)"))
-                        prefl.append("")
-            try:
-                self.fref = prefl[0]
-            except IndexError:
-                self.fref = ""
-            try:
-                self.mref = prefl[1]
-            except IndexError:
-                self.mref = ""
+            self.g_birthdate = data['g_birthdate']
+            self.g_birthplace = data['g_birthplace']
+            self.g_birthplacecode = data['g_birthplacecode']
+            self.g_deathdate = data['g_deathdate']
+            self.g_deathplace = data['g_deathplace']
+            self.g_deathplacecode = data['g_deathplacecode']
+            self.spouseref = data['spouseref']
+            self.marriagedate = data['marriagedate']
+            self.marriageplace = data['marriageplace']
+            self.marriageplacecode = data['marriageplacecode']
+            self.childref = data['childref']
+            self.fref = data['fref']
+            self.mref = data['mref']
 
     def create_grampsp(self):
         with DbTxn("Geneanet import", state.db) as tran:

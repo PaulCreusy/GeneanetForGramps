@@ -7,3 +7,9 @@ class GeneanetAccessError(Exception):
     that auto-login could not get past. This must stop the import instead
     of silently continuing to parse an empty/garbage page, which otherwise
     produces phantom nameless persons."""
+
+
+class ImportCancelled(Exception):
+    """Raised when the user clicks Stop on the progress dialog, to unwind
+    out of the (possibly deep) recursive import instead of continuing to
+    fetch and report errors for every remaining person."""

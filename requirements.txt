@@ -1,3 +1,6 @@
-selenium==4.34.2
-webdriver-manager==4.0.2
+# Dependencies for GeneanetForGramps itself, installed into Gramps' own
+# Python environment (whichever one that is). Selenium/lxml are NOT here:
+# the scraper worker (worker/) manages its own dedicated venv on first run
+# (see src/worker_env.py and requirements-worker.txt), so they never need to
+# be installed alongside Gramps.
 Unidecode==1.4.0
