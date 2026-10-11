@@ -135,7 +135,7 @@ crash away from Gramps), the work is split in two:
 
 ```
 python3 scripts/test_worker.py [URL]   # smoke-test the worker without Gramps
-python3 scripts/build_addon.py         # rebuild addons/gramps60 (package + listing)
+python3 scripts/build_addon.py         # rebuild addons/gramps60 (package + per-language listings)
 ```
 
 Rebuild and commit `addons/` whenever the code changes and a new version is

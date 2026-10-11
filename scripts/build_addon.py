@@ -4,7 +4,7 @@ Manager install it from this repository.
 
 Output (committed, then served through raw.githubusercontent.com):
     addons/gramps<MAJOR><MINOR>/download/GeneanetForGramps.addon.tgz
-    addons/gramps<MAJOR><MINOR>/listings/addons-en.json
+    addons/gramps<MAJOR><MINOR>/listings/addons-<lang>.json
 
 Usage:
     python3 scripts/build_addon.py [--gramps-version 6.0]
@@ -27,6 +27,20 @@ TOP_LEVEL_FILES = [
     "requirements-worker.txt", "README.md", "LICENSE",
 ]
 TOOL_PTYPE = 2
+# The Addon Manager hides, by default, every addon that is not "Stable"
+# (s == 3) and "Everyone" (a == 0). Gramps fills in 0 for both when the keys
+# are missing, which makes an unmarked addon silently invisible.
+STATUS_STABLE = 3
+AUDIENCE_EVERYONE = 0
+# Gramps asks for listings/addons-<lang>.json, trying the full locale and
+# then its two-letter prefix, per language of the user's locale list, and
+# only then "en". Serving the same listing for every language Gramps
+# supports (po/LINGUAS) avoids a 404 warning per language tried.
+LANGUAGES = (
+    "ar ba bg ca cs da de de_AT el en en_GB eo es fi fr ga he hr hu is it ja "
+    "ko lt nb nl nn pl pt pt_BR pt_PT ru sk sl sq sr sv ta tr uk vi zh zh_CN "
+    "zh_HK zh_TW"
+).split()
 PACKAGE_DIRS = ["src", "worker"]
 PACKAGE_EXTENSIONS = (".py",)
 
@@ -102,12 +116,15 @@ def main():
         "g": args.gramps_version,
         "d": meta["description"],
         "z": tgz_name,
+        "s": STATUS_STABLE,
+        "a": AUDIENCE_EVERYONE,
     }]
-    with open(os.path.join(listings_dir, "addons-en.json"), "w", encoding="utf-8") as f:
-        json.dump(listing, f, indent=2, ensure_ascii=False)
-        f.write("\n")
+    for lang in LANGUAGES:
+        with open(os.path.join(listings_dir, "addons-%s.json" % lang), "w", encoding="utf-8") as f:
+            json.dump(listing, f, indent=2, ensure_ascii=False)
+            f.write("\n")
 
-    print("Built %s and listings/addons-en.json in %s" % (tgz_name, out_dir))
+    print("Built %s and the listings in %s" % (tgz_name, out_dir))
 
 
 if __name__ == "__main__":
