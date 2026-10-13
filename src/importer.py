@@ -4,6 +4,7 @@ import sys
 import src.state as state
 from src.state import _, LOG
 from src.gperson import GPerson
+from src.progress import ImportProgress
 from src.exceptions import GeneanetAccessError, ImportCancelled
 from gramps.gui.dialog import ErrorDialog
 
@@ -32,12 +33,14 @@ def geneanet_to_gramps(p, level, gid, url):
     # through here first, so this is the one place that needs to check for
     # a user-requested Stop - raising unwinds the whole recursion instead of
     # fetching and reporting a conflict for every remaining person.
-    if state.GUIMODE and state.progress and state.progress.get_cancelled():
+    if state.progress.cancelled():
         raise ImportCancelled()
 
     if not p:
         p = GPerson(level)
+    state.progress.page_started(url, level)
     p.from_geneanet(url)
+    state.progress.page_done(p, level, url)
     p.from_gramps(gid)
 
     if gid is not None:
@@ -67,14 +70,12 @@ def geneanet_to_gramps(p, level, gid, url):
             return None
 
     p.to_gramps()
-    if state.GUIMODE:
-        state.progress.set_header(_("Adding Gramps Person %s %s (%s | %s)") % (
-            p.firstname, p.lastname, p.birthdate, p.deathdate))
-        state.progress.step()
     return p
 
 
 def g2gaction(gid, purl):
+    if state.progress is None:
+        state.progress = ImportProgress()
     try:
         try:
             gp = geneanet_to_gramps(None, 0, gid, purl)
@@ -104,5 +105,5 @@ def g2gaction(gid, purl):
             LOG.info(_("Geneanet import cancelled by the user."))
     finally:
         state.close_worker()
-        if state.GUIMODE:
-            state.progress.close()
+        state.progress.close()
+        state.progress = None

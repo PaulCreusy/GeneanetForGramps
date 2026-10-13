@@ -3,7 +3,7 @@ import src.state as state
 from src.state import _, LOG
 from src.gbase import GBase
 from src.date_utils import format_year
-from src.exceptions import GeneanetAccessError
+from src.exceptions import GeneanetAccessError, ImportCancelled
 
 from gramps.gen.db import DbTxn
 from gramps.gen.errors import HandleError
@@ -74,7 +74,7 @@ class GPerson(GBase):
             return ()
         try:
             data = state.get_worker_client().scrape(purl)
-        except GeneanetAccessError:
+        except (GeneanetAccessError, ImportCancelled):
             # Always fatal: never continue parsing a page we could not
             # legitimately reach, as that produces phantom, nameless persons.
             raise
