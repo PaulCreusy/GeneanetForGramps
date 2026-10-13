@@ -4,6 +4,7 @@ from src.state import _, LOG
 from src.gbase import GBase
 from src.date_utils import format_year
 from src.exceptions import GeneanetAccessError, ImportCancelled
+from src import report
 
 from gramps.gen.db import DbTxn
 from gramps.gen.errors import HandleError
@@ -27,6 +28,7 @@ class GPerson(GBase):
         self.deathplacecode = None
         self.gid = None
         self.grampsp = None
+        self.created = False
         # Father and Mother and Spouses GPersons
         self.father = None
         self.mother = None
@@ -78,8 +80,9 @@ class GPerson(GBase):
             # Always fatal: never continue parsing a page we could not
             # legitimately reach, as that produces phantom, nameless persons.
             raise
-        except Exception:
+        except Exception as err:
             LOG.error(_("We failed to reach the server at %s"), purl, exc_info=True)
+            report.current.failure("%s (%s)" % (purl, err))
             if state.stop_on_error:
                 raise
         else:
@@ -109,6 +112,7 @@ class GPerson(GBase):
             state.db.add_person(grampsp, tran)
             self.gid = grampsp.gramps_id
             self.grampsp = grampsp
+            self.created = True
             LOG.info(_("Create new Gramps Person: %s (%s %s)"),
                      self.gid, self.g_firstname, self.g_lastname)
 
@@ -313,6 +317,7 @@ class GPerson(GBase):
                 # attach, so skip it instead of creating a nameless person.
                 LOG.info(_("No navigable link for spouse %d of %s %s (private profile), skipping"),
                          i, self.firstname, self.lastname)
+                report.current.skip(_("a spouse of %s %s") % (self.firstname, self.lastname))
                 i = i + 1
                 continue
             spouse = None
@@ -374,6 +379,7 @@ class GPerson(GBase):
                 LOG.debug(_("=> End of recursion on the parents of %s %s"), self.father.firstname, self.father.lastname)
             else:
                 LOG.info(_("No navigable link for the father (private profile), skipping"))
+                report.current.skip(_("the father of %s %s") % (self.firstname, self.lastname))
 
             if self.mref:
                 geneanet_to_gramps(self.mother, level, self.mother.gid, self.mref)
@@ -384,6 +390,7 @@ class GPerson(GBase):
                 LOG.debug(_("=> End of recursing on the mother of %s %s"), self.mother.firstname, self.mother.lastname)
             else:
                 LOG.info(_("No navigable link for the mother (private profile), skipping"))
+                report.current.skip(_("the mother of %s %s") % (self.firstname, self.lastname))
 
             LOG.debug(_("=> Initialize Parents Family of %s %s"), self.firstname, self.lastname)
             f = GFamily(self.father, self.mother)

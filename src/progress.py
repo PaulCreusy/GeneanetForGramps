@@ -34,6 +34,9 @@ class ImportProgress:
         self._person = ""
         self._status = ""
 
+    def elapsed(self):
+        return time.monotonic() - self.started
+
     def cancelled(self):
         return bool(self.meter and self.meter.get_cancelled())
 
