@@ -202,6 +202,69 @@ def _parse_occupation(tree):
     return "; ".join(lines) or None
 
 
+def tree_root_url(purl):
+    """The home page of the tree a person page belongs to: same site and
+    first path segment (the tree's name), without the person parameters."""
+    parts = urlparse(purl)
+    segments = [s for s in parts.path.split('/') if s]
+    if not segments:
+        return None
+    lang = parse_qs(parts.query).get('lang', ['fr'])[0]
+    return "%s://%s/%s?lang=%s" % (parts.scheme, parts.netloc, segments[0], lang)
+
+
+def parse_tree_size(tree):
+    """Number of persons of the tree, from the statistics block of its home
+    page: a counter under the "individu" icon (the label next to it is
+    translated, the icon class is not), which also links to the list of all
+    the persons (m=LIST_IND). The number is formatted with thin spaces
+    ("10 949"). None if the page has no such counter."""
+    for xpath in (
+            '//span[contains(@class,"svg-icon-individu-grey")]/span[contains(@class,"stats-number")]',
+            '//a[contains(@href,"m=LIST_IND")]//span[contains(@class,"stats-number")]'):
+        for element in tree.xpath(xpath):
+            digits = re.sub(r'\D', '', element.text_content())
+            if digits:
+                return int(digits)
+    return None
+
+
+def fetch_tree_size(purl, timeout=120):
+    """Total number of persons in the tree of purl, or None when it cannot be
+    read. Never raises for a page problem: the size only sharpens the progress
+    estimate, so the import goes on without it (the person pages have their
+    own Cloudflare and login handling)."""
+    root = tree_root_url(purl)
+    if not root:
+        return None
+    driver = get_driver()
+    driver.get(root)
+    notice_shown = False
+    elapsed = 0
+    while elapsed < timeout:
+        try:
+            source = driver.page_source
+            current_url = driver.current_url
+        except WebDriverException:
+            source, current_url = "", ""
+        # "GeneanetKeys" is on every real Geneanet page; a Cloudflare
+        # challenge page does not have it.
+        if "GeneanetKeys" in source:
+            try:
+                return parse_tree_size(html.fromstring(source))
+            except (ParserError, XMLSyntaxError):
+                return None
+        if 'connexion' in current_url or 'login' in current_url:
+            return None
+        if not notice_shown:
+            LOG.warning("Cloudflare verification detected. Please complete the challenge in the browser window.")
+            _status("cloudflare")
+            notice_shown = True
+        time.sleep(2)
+        elapsed += 2
+    return None
+
+
 def _is_profile_link(a):
     """True if this <a> can lead to another person's page. Footnote anchors
     next to a union (e.g. href="#note-wed-1", the marriage note) are also

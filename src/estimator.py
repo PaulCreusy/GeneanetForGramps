@@ -20,6 +20,7 @@ class TreeEstimator:
 
     def __init__(self, max_level):
         self.max_level = max_level
+        self.tree_size = None  # persons in the whole tree, when known
         self.done = 0
         self._visited = set()
         self._pending = {}  # url -> level it will be fetched at
@@ -45,8 +46,13 @@ class TreeEstimator:
             return 1.0
         return min(self._links_found / self._expanding_pages, self.FAN_OUT_LIMIT)
 
-    def remaining(self):
-        """Estimated number of pages still to fetch."""
+    def set_tree_size(self, size):
+        """The number of persons of the whole tree: no import can fetch more
+        pages than that, so it caps the projection."""
+        self.tree_size = size if size and size > 0 else None
+
+    def _projected(self):
+        """Pages still to fetch, from the links seen and the depth limit."""
         fan = self._fan_out()
         total = 0.0
         for level in self._pending.values():
@@ -56,6 +62,18 @@ class TreeEstimator:
                 if total > self.MAX_PROJECTED_PAGES:
                     return float(self.MAX_PROJECTED_PAGES)
         return total
+
+    def remaining(self):
+        """Estimated number of pages still to fetch."""
+        projected = self._projected()
+        if self.tree_size is not None:
+            projected = min(projected, max(self.tree_size - self.done, 0))
+        return projected
+
+    def capped(self):
+        """True when the tree size, not the projection, sets the total."""
+        return (self.tree_size is not None
+                and self.done + self._projected() > self.tree_size)
 
     def total(self):
         return self.done + self.remaining()

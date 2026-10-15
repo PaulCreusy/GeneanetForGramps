@@ -7,6 +7,7 @@ from src.gperson import GPerson
 from src.progress import ImportProgress
 from src import report
 from src.exceptions import GeneanetAccessError, ImportCancelled
+from src.worker_env import WorkerEnvError
 from gramps.gui.dialog import ErrorDialog, InfoDialog
 
 
@@ -86,12 +87,30 @@ def _show_summary(pages, seconds):
         print("\n" + report.current.title() + "\n" + text)
 
 
+def _read_tree_size(purl):
+    """Total number of persons of the tree being imported from, used to
+    bound the progress estimate. None when unavailable: that never stops
+    the import, except when the scraper environment itself cannot be set
+    up, which is reported now rather than as a failure on every page."""
+    state.progress.set_status(_("Reading the size of the Geneanet tree..."))
+    try:
+        return state.get_worker_client().tree_size(purl)
+    except (GeneanetAccessError, ImportCancelled):
+        raise
+    except WorkerEnvError as err:
+        raise GeneanetAccessError(str(err)) from err
+    except Exception:
+        LOG.debug("Could not read the tree size", exc_info=True)
+        return None
+
+
 def g2gaction(gid, purl):
     if state.progress is None:
         state.progress = ImportProgress()
     report.start()
     try:
         try:
+            state.progress.set_tree_size(_read_tree_size(purl))
             gp = geneanet_to_gramps(None, 0, gid, purl)
 
             if gp is not None:

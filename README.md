@@ -79,7 +79,9 @@ An existing value is only replaced when **Force Import** is enabled.
 
 A progress window is shown during the import. Its bar is an **estimate**: the size
 of a Geneanet tree is unknown until it has been walked, so the total is projected
-from the links found so far and the depth you chose, and it is refined after every
+from the links found so far and the depth you chose, capped by the number of persons
+of the whole tree (read once from the tree's home page when the import starts), and it is
+refined after every
 page (the bar never goes backwards, and stays under 100% until the end). Under the
 bar you see the page count (`Page 12 of about 40`), the person being handled, what the
 import is waiting for (for example the Cloudflare checkbox), the elapsed time and an
