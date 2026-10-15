@@ -2,10 +2,10 @@
   {
     "t": 2,
     "i": "Import Geneanet data for Gramps",
-    "n": "Import Geneanet data for Gramps",
-    "v": "1.4.0",
+    "n": "Import des données Geneanet dans Gramps",
+    "v": "1.5.0",
     "g": "6.0",
-    "d": "Extension to import data from Geneanet into Gramps.",
+    "d": "Extension pour importer les données de Geneanet dans Gramps",
     "z": "GeneanetForGramps.addon.tgz",
     "s": 3,
     "a": 0

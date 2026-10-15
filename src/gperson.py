@@ -125,7 +125,7 @@ class GPerson(GBase):
             self.mref = data['mref']
 
     def create_grampsp(self):
-        with DbTxn("Geneanet import", state.db) as tran:
+        with DbTxn(_("Geneanet import"), state.db) as tran:
             grampsp = Person()
             state.db.add_person(grampsp, tran)
             self.gid = grampsp.gramps_id
@@ -193,7 +193,7 @@ class GPerson(GBase):
     def to_gramps(self):
         self.smartcopy()
 
-        with DbTxn("Geneanet import", state.db) as tran:
+        with DbTxn(_("Geneanet import"), state.db) as tran:
             state.db.disable_signals()
             grampsp = self.grampsp
             if not grampsp:
@@ -237,7 +237,7 @@ class GPerson(GBase):
                         found = True
                 if not found:
                     url = Url()
-                    url.set_description("Imported from Geneanet")
+                    url.set_description(_("Imported from Geneanet"))
                     url.set_type(UrlType.WEB_HOME)
                     url.set_path(self.url)
                     grampsp.add_url(url)

@@ -23,6 +23,23 @@ _LOG_LEVEL_FOR_VERBOSITY = {0: "WARNING", 1: "INFO"}
 _POLL_INTERVAL = 0.1
 
 
+def _access_error_text(code, params, fallback):
+    """The user-language text of a GeneanetAccessError raised by the worker;
+    the worker's own (English) message is the fallback for unknown codes."""
+    if code == "login_failed":
+        return _("Geneanet requires logging in to view %(url)s, and auto-login could not "
+                 "complete it (no credentials configured, or login failed or blocked by "
+                 "a CAPTCHA). Open this tool's options and fill in '%(user)s' and '%(password)s' "
+                 "under '%(section)s', then try again.") % {
+            "url": params.get("url", ""), "user": _("Geneanet username (email)"),
+            "password": _("Geneanet password"), "section": _("Geneanet Login (optional)")}
+    if code == "page_unresolved":
+        return _("The page for %(url)s never resolved to a person page after %(attempts)d attempts "
+                 "(Cloudflare check likely still pending, or the site kept redirecting "
+                 "elsewhere).") % {"url": params.get("url", ""), "attempts": params.get("attempts", 0)}
+    return fallback
+
+
 def _status_text(event):
     """Translate a status event sent by the worker. The worker has no
     access to Gramps' translations, so it only sends a code and parameters."""
@@ -149,7 +166,8 @@ class WorkerClient:
         if not response.get("ok"):
             error = response.get("error", _("Unknown scraper worker error"))
             if response.get("error_type") == "access":
-                raise GeneanetAccessError(error)
+                code, params = response.get("code"), response.get("params") or {}
+                raise GeneanetAccessError(_access_error_text(code, params, error), code=code, **params)
             raise RuntimeError(error)
         return response["data"]
 

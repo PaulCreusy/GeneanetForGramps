@@ -66,7 +66,8 @@ def main():
                 data = scraper.scrape_person(request["url"])
                 print(json.dumps({"ok": True, "data": data}), flush=True)
             except GeneanetAccessError as e:
-                print(json.dumps({"ok": False, "error_type": "access", "error": str(e)}), flush=True)
+                print(json.dumps({"ok": False, "error_type": "access", "error": str(e),
+                                  "code": e.code, "params": e.params}), flush=True)
             except Exception as e:
                 LOG.error("Scraping failed", exc_info=True)
                 print(json.dumps({"ok": False, "error_type": "generic", "error": str(e)}), flush=True)

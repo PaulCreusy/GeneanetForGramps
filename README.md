@@ -145,6 +145,27 @@ crash away from Gramps), the work is split in two:
   Gramps as JSON. If it ever stops responding, it is terminated after a
   timeout instead of freezing Gramps.
 
+## Translations
+
+The interface is translated; Gramps picks the language of its own interface. French is
+included, and any string without a translation is shown in English. The translations are
+shipped in `locale/<lang>/LC_MESSAGES/addon.mo`, built from `po/<lang>.po`.
+
+To fix or add a language (no gettext tools needed):
+
+```
+python3 scripts/i18n.py extract   # refresh po/template.pot from the source code
+python3 scripts/i18n.py update    # add the new strings to every po/<lang>.po
+# edit po/<lang>.po (to add a language: copy po/template.pot to po/<lang>.po first)
+python3 scripts/i18n.py check     # untranslated strings, mismatched %s / %d placeholders
+python3 scripts/i18n.py compile   # write locale/<lang>/LC_MESSAGES/addon.mo
+```
+
+Messages written for developers (`LOG.debug`) are not translated. Keep the placeholders
+(`%s`, `%d`, `%(name)s`) of the English text in your translation; `check` reports any
+difference. Run `python3 scripts/build_addon.py` afterwards to rebuild the package, which
+also publishes the translated name and description to the Addon Manager.
+
 ## Troubleshooting
 
 - **"ensurepip is not available"**: install the venv package, e.g.
@@ -159,7 +180,7 @@ crash away from Gramps), the work is split in two:
 
 ```
 python3 scripts/test_worker.py [URL]   # smoke-test the worker without Gramps
-python3 scripts/build_addon.py         # rebuild addons/gramps60 (package + per-language listings)
+python3 scripts/build_addon.py         # compile translations, rebuild addons/gramps60 (package + per-language listings)
 ```
 
 Rebuild and commit `addons/` whenever the code changes and a new version is

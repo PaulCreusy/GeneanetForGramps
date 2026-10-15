@@ -16,6 +16,8 @@ import sys
 import tarfile
 import types
 
+import i18n
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ADDON_DIR = "GeneanetForGramps"
 GPR_FILE = "GeneanetForGramps.gpr.py"
@@ -42,6 +44,7 @@ LANGUAGES = (
     "zh_HK zh_TW"
 ).split()
 PACKAGE_DIRS = ["src", "worker"]
+TRANSLATION_FILES = "locale"
 PACKAGE_EXTENSIONS = (".py",)
 
 
@@ -66,11 +69,28 @@ def read_gpr_metadata():
     return captured
 
 
+def translated(lang, msgid):
+    """The msgstr for msgid in po/<lang>.po (or its two-letter base), else None."""
+    for code in (lang, lang.split("_")[0]):
+        path = os.path.join(i18n.PO_DIR, code + ".po")
+        if os.path.exists(path):
+            for entry in i18n.read_po(path):
+                if entry["msgid"] == msgid and entry["msgstr"] and not entry["fuzzy"]:
+                    return entry["msgstr"]
+    return None
+
+
 def archive_members():
     members = [(name, name) for name in TOP_LEVEL_FILES]
+    for base, dirs, files in os.walk(os.path.join(REPO_ROOT, TRANSLATION_FILES)):
+        dirs.sort()
+        for fname in sorted(files):
+            if fname.endswith(".mo"):
+                path = os.path.relpath(os.path.join(base, fname), REPO_ROOT)
+                members.append((path, path))
     for package in PACKAGE_DIRS:
         for root, dirs, files in os.walk(os.path.join(REPO_ROOT, package)):
-            dirs[:] = [d for d in dirs if d != "__pycache__"]
+            dirs[:] = sorted(d for d in dirs if d != "__pycache__")
             for fname in sorted(files):
                 if fname.endswith(PACKAGE_EXTENSIONS):
                     path = os.path.relpath(os.path.join(root, fname), REPO_ROOT)
@@ -91,6 +111,7 @@ def main():
     os.makedirs(download_dir, exist_ok=True)
     os.makedirs(listings_dir, exist_ok=True)
 
+    i18n.cmd_compile()
     meta = read_gpr_metadata()
     tgz_name = "%s.addon.tgz" % ADDON_DIR
 
@@ -105,23 +126,26 @@ def main():
             tar.add(os.path.join(REPO_ROOT, src_path),
                     arcname=os.path.join(ADDON_DIR, arc_path), filter=reset_owner)
 
-    listing = [{
-        # Gramps' PTYPE integer for a tool (gramps.gen.plug.TOOL == 2): the
-        # Addon Manager indexes PTYPE_STR with this value, so a string such
-        # as "Tool" raises KeyError when the addon list is displayed.
-        "t": TOOL_PTYPE,
-        "i": meta["id"],
-        "n": meta["name"],
-        "v": meta["version"],
-        "g": args.gramps_version,
-        "d": meta["description"],
-        "z": tgz_name,
-        "s": STATUS_STABLE,
-        "a": AUDIENCE_EVERYONE,
-    }]
+    def listing_for(lang):
+        return [{
+            # Gramps' PTYPE integer for a tool (gramps.gen.plug.TOOL == 2): the
+            # Addon Manager indexes PTYPE_STR with this value, so a string such
+            # as "Tool" raises KeyError when the addon list is displayed.
+            "t": TOOL_PTYPE,
+            "i": meta["id"],
+            # Name and description are shown by the Addon Manager before the
+            # addon is installed, so they are translated in the listing too.
+            "n": translated(lang, meta["name"]) or meta["name"],
+            "v": meta["version"],
+            "g": args.gramps_version,
+            "d": translated(lang, meta["description"]) or meta["description"],
+            "z": tgz_name,
+            "s": STATUS_STABLE,
+            "a": AUDIENCE_EVERYONE,
+        }]
     for lang in LANGUAGES:
         with open(os.path.join(listings_dir, "addons-%s.json" % lang), "w", encoding="utf-8") as f:
-            json.dump(listing, f, indent=2, ensure_ascii=False)
+            json.dump(listing_for(lang), f, indent=2, ensure_ascii=False)
             f.write("\n")
 
     print("Built %s and the listings in %s" % (tgz_name, out_dir))
