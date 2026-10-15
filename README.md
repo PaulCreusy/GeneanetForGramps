@@ -72,8 +72,28 @@ Open **Tools ▸ Family Tree Processing ▸ Import Geneanet data for Gramps**.
 | Verbosity | 0 (quiet) to 3 (very verbose), logged to the terminal Gramps was started from. |
 | Geneanet username / password | Optional, see below. |
 
-A progress window with a **Stop** button is shown during the import. Persons
-already in your tree are detected by their Geneanet URL, then by name and
+The occupation shown on the Geneanet page, when there is one, is stored in an
+**Occupation** attribute on the person (displayed as *Profession* in a French
+Gramps; on Gramps older than 6.0 it is a custom attribute named `Occupation`).
+An existing value is only replaced when **Force Import** is enabled.
+
+A progress window is shown during the import. Its bar is an **estimate**: the size
+of a Geneanet tree is unknown until it has been walked, so the total is projected
+from the links found so far and the depth you chose, and it is refined after every
+page (the bar never goes backwards, and stays under 100% until the end). Under the
+bar you see the page count (`Page 12 of about 40`), the person being handled, what the
+import is waiting for (for example the Cloudflare checkbox), the elapsed time and an
+estimate of the remaining time. The window stays responsive while a page loads, and
+its **Cancel** button stops the import right away, closing the browser.
+
+When the import ends - finished, cancelled or stopped by an error - a summary window
+lists what was done: pages processed and time taken, persons and families created
+or already in the tree, the profiles skipped because Geneanet gives no link to them
+(private profiles), the persons left untouched because of a conflict with your tree,
+and the pages that could not be read. On the command line the same summary is
+printed.
+
+Persons already in your tree are detected by their Geneanet URL, then by name and
 dates. If the same person differs between Gramps and Geneanet (name, birth or
 death date), the import stops with an explanation unless **Force Import** is
 enabled.

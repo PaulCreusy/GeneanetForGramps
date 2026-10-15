@@ -3,11 +3,26 @@ import src.state as state
 from src.state import _, LOG
 from src.gbase import GBase
 from src.date_utils import format_year
-from src.exceptions import GeneanetAccessError
+from src.exceptions import GeneanetAccessError, ImportCancelled
+from src import report
 
 from gramps.gen.db import DbTxn
 from gramps.gen.errors import HandleError
-from gramps.gen.lib import Person, Name, NameType, EventType, Url, UrlType
+from gramps.gen.lib import Person, Name, NameType, EventType, Url, UrlType, Attribute, AttributeType
+
+
+def _occupation_type():
+    """Gramps 6.0 has a native Occupation attribute type (shown as
+    "Profession" in French); older versions only get a custom one."""
+    code = getattr(AttributeType, "OCCUPATION", None)
+    if code is not None:
+        return AttributeType(code)
+    return AttributeType((AttributeType.CUSTOM, "Occupation"))
+
+
+def _is_occupation(attr_type):
+    code = getattr(AttributeType, "OCCUPATION", None)
+    return attr_type == (code if code is not None else "Occupation")
 
 
 class GPerson(GBase):
@@ -25,8 +40,10 @@ class GPerson(GBase):
         self.deathdate = None
         self.deathplace = None
         self.deathplacecode = None
+        self.occupation = None
         self.gid = None
         self.grampsp = None
+        self.created = False
         # Father and Mother and Spouses GPersons
         self.father = None
         self.mother = None
@@ -43,6 +60,7 @@ class GPerson(GBase):
         self.g_deathdate = None
         self.g_deathplace = None
         self.g_deathplacecode = None
+        self.g_occupation = None
         self.url = ""
         self.spouseref = []
         self.fref = ""
@@ -63,6 +81,7 @@ class GPerson(GBase):
         self._smartcopy("deathdate")
         self._smartcopy("deathplace")
         self._smartcopy("deathplacecode")
+        self._smartcopy("occupation")
 
     def from_geneanet(self, purl):
         ''' Delegate the actual page fetch/parse to the isolated scraper
@@ -74,12 +93,13 @@ class GPerson(GBase):
             return ()
         try:
             data = state.get_worker_client().scrape(purl)
-        except GeneanetAccessError:
+        except (GeneanetAccessError, ImportCancelled):
             # Always fatal: never continue parsing a page we could not
             # legitimately reach, as that produces phantom, nameless persons.
             raise
-        except Exception:
+        except Exception as err:
             LOG.error(_("We failed to reach the server at %s"), purl, exc_info=True)
+            report.current.failure("%s (%s)" % (purl, err))
             if state.stop_on_error:
                 raise
         else:
@@ -95,6 +115,7 @@ class GPerson(GBase):
             self.g_deathdate = data['g_deathdate']
             self.g_deathplace = data['g_deathplace']
             self.g_deathplacecode = data['g_deathplacecode']
+            self.g_occupation = data.get('occupation')
             self.spouseref = data['spouseref']
             self.marriagedate = data['marriagedate']
             self.marriageplace = data['marriageplace']
@@ -109,6 +130,7 @@ class GPerson(GBase):
             state.db.add_person(grampsp, tran)
             self.gid = grampsp.gramps_id
             self.grampsp = grampsp
+            self.created = True
             LOG.info(_("Create new Gramps Person: %s (%s %s)"),
                      self.gid, self.g_firstname, self.g_lastname)
 
@@ -195,6 +217,18 @@ class GPerson(GBase):
             for ev in ['birth', 'death']:
                 self.get_or_create_event(grampsp, ev, tran)
 
+            if self.occupation:
+                for attr in grampsp.get_attribute_list():
+                    if _is_occupation(attr.get_type()):
+                        attr.set_value(self.occupation)
+                        break
+                else:
+                    attr = Attribute()
+                    attr.set_type(_occupation_type())
+                    attr.set_value(self.occupation)
+                    grampsp.add_attribute(attr)
+                LOG.info(_("Occupation: %s"), self.occupation)
+
             # Store the importation place as an Internet note
             if self.url != "":
                 found = False
@@ -272,6 +306,11 @@ class GPerson(GBase):
         except AttributeError:
             LOG.warning(_("Unable to retrieve death date for id %s"), self.gid)
 
+        for attr in self.grampsp.get_attribute_list():
+            if _is_occupation(attr.get_type()):
+                self.occupation = attr.get_value()
+                break
+
         # Deal with the parents now, as they necessarily exist
         self.father = GPerson(self.level + 1)
         self.mother = GPerson(self.level + 1)
@@ -313,6 +352,7 @@ class GPerson(GBase):
                 # attach, so skip it instead of creating a nameless person.
                 LOG.info(_("No navigable link for spouse %d of %s %s (private profile), skipping"),
                          i, self.firstname, self.lastname)
+                report.current.skip(_("a spouse of %s %s") % (self.firstname, self.lastname))
                 i = i + 1
                 continue
             spouse = None
@@ -374,6 +414,7 @@ class GPerson(GBase):
                 LOG.debug(_("=> End of recursion on the parents of %s %s"), self.father.firstname, self.father.lastname)
             else:
                 LOG.info(_("No navigable link for the father (private profile), skipping"))
+                report.current.skip(_("the father of %s %s") % (self.firstname, self.lastname))
 
             if self.mref:
                 geneanet_to_gramps(self.mother, level, self.mother.gid, self.mref)
@@ -384,6 +425,7 @@ class GPerson(GBase):
                 LOG.debug(_("=> End of recursing on the mother of %s %s"), self.mother.firstname, self.mother.lastname)
             else:
                 LOG.info(_("No navigable link for the mother (private profile), skipping"))
+                report.current.skip(_("the mother of %s %s") % (self.firstname, self.lastname))
 
             LOG.debug(_("=> Initialize Parents Family of %s %s"), self.firstname, self.lastname)
             f = GFamily(self.father, self.mother)

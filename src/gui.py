@@ -2,6 +2,7 @@
 import src.state as state
 from src.state import _, LOG, CONFIG, ROOTURL, save_config
 from src.importer import g2gaction
+from src.progress import ImportProgress, BAR_STEPS
 from src.credentials import get_credentials, save_credentials, CREDENTIALS_FILE
 
 from gramps.gui.plug import MenuToolOptions, PluginWindows
@@ -96,8 +97,9 @@ class GeneanetForGramps(PluginWindows.ToolManagedWindowBatch):
         self.__get_menu_options()
         hdr = _('Importing from %s for user %s') % (self.purl, self.gid)
         msg = _('Geneanet Import into Gramps')
-        state.progress = ProgressMeter(msg, hdr, can_cancel=True)
-        state.progress.set_pass(hdr, 100, mode=ProgressMeter.MODE_ACTIVITY)
+        meter = ProgressMeter(msg, hdr, can_cancel=True)
+        meter.set_pass(hdr, BAR_STEPS, mode=ProgressMeter.MODE_FRACTION)
+        state.progress = ImportProgress(meter)
         LOG.info(msg)
         state.GUIMODE = True
         g2gaction(self.gid, self.purl)

@@ -37,7 +37,11 @@ def main():
     try:
         proc.stdin.write(json.dumps({"cmd": "scrape", "url": url}) + "\n")
         proc.stdin.flush()
-        response = json.loads(proc.stdout.readline())
+        while True:
+            response = json.loads(proc.stdout.readline())
+            if "event" not in response:
+                break
+            print("status:", response)
         print(json.dumps(response, indent=2, ensure_ascii=False))
         input("Press Enter to close the worker...")
     finally:

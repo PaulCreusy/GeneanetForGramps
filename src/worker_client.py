@@ -10,12 +10,33 @@ import queue
 import subprocess
 import sys
 import threading
+import time
 
 from src.state import _, LOG
 from src.worker_env import ensure_worker_env, REPO_ROOT
-from src.exceptions import GeneanetAccessError
+from src.exceptions import GeneanetAccessError, ImportCancelled
 
 _LOG_LEVEL_FOR_VERBOSITY = {0: "WARNING", 1: "INFO"}
+
+# How often the wait for a worker reply wakes up to keep the window alive,
+# show new status messages and notice a click on Cancel.
+_POLL_INTERVAL = 0.1
+
+
+def _status_text(event):
+    """Translate a status event sent by the worker. The worker has no
+    access to Gramps' translations, so it only sends a code and parameters."""
+    code = event.get("code")
+    if code == "cloudflare":
+        return _("Waiting for the Cloudflare check: please tick the checkbox in the browser window")
+    if code == "login":
+        return _("Logging in to Geneanet...")
+    if code == "retry":
+        return _("Page not recognized, retrying (attempt %(attempt)d of %(max)d)...") % {
+            "attempt": event.get("attempt", 0), "max": event.get("max", 0)}
+    if code == "pause":
+        return _("Short pause between two requests, to be fair with Geneanet...")
+    return ""
 
 
 class WorkerClient:
@@ -49,46 +70,79 @@ class WorkerClient:
 
     def _report_progress(self, message):
         import src.state as state
-        if state.GUIMODE and state.progress:
-            state.progress.set_header(message)
-        else:
-            LOG.info(message)
+        LOG.info(message)
+        if state.progress:
+            state.progress.set_status(message)
 
-    def _request(self, payload, timeout):
+    def _stop(self):
+        """End the worker without leaving its browser behind: SIGTERM lets it
+        close Chrome itself (see worker/main.py); kill only if it ignores it."""
+        proc, self._proc = self._proc, None
+        if proc is None or proc.poll() is not None:
+            return
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
+    def _request(self, payload, timeout, cancellable=True):
+        import src.state as state
         if self._proc is None or self._proc.poll() is not None:
             raise GeneanetAccessError(_("The scraper worker process is not running."))
         self._proc.stdin.write(json.dumps(payload) + "\n")
         self._proc.stdin.flush()
 
-        # readline() has no timeout of its own, so a worker stuck on a
-        # Selenium call that never raises (rather than one that fails
-        # cleanly) would otherwise block this call - and with it Gramps'
-        # own GTK thread - forever. Reading on a background thread lets the
-        # timeout below apply regardless: the thread itself may keep
-        # blocking on the dead worker's pipe, but it is a daemon thread and
-        # the process is killed right after, so it cannot leak.
-        replies = queue.Queue(maxsize=1)
+        # readline() has no timeout of its own, so it is done on a background
+        # thread: a worker stuck on a call that never raises would otherwise
+        # block this one - and with it Gramps' own GTK thread - forever. The
+        # thread forwards the status events the worker sends while it works,
+        # then the final reply, and ends with the process (it is a daemon
+        # thread, and the process is stopped on every error path below).
+        proc = self._proc
+        messages = queue.Queue()
 
         def _read():
             try:
-                replies.put(self._proc.stdout.readline())
-            except Exception:
-                replies.put("")
+                for line in proc.stdout:
+                    message = json.loads(line)
+                    messages.put(message)
+                    if "event" not in message:
+                        return
+            except (OSError, ValueError):
+                pass
+            messages.put(None)
 
         threading.Thread(target=_read, daemon=True).start()
-        try:
-            line = replies.get(timeout=timeout)
-        except queue.Empty:
-            LOG.error(_("The scraper worker did not respond within %ds - terminating it."), timeout)
-            self._proc.kill()
-            self._proc = None
-            raise GeneanetAccessError(
-                _("The scraper worker stopped responding (the browser may be stuck) and was terminated."))
 
-        if not line:
-            self._proc = None
-            raise GeneanetAccessError(_("The scraper worker process closed unexpectedly."))
-        return json.loads(line)
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                message = messages.get(timeout=_POLL_INTERVAL)
+            except queue.Empty:
+                # Keep the window repainting (and Cancel clickable) while the
+                # worker is busy, e.g. waiting on a Cloudflare check.
+                if state.progress:
+                    state.progress.pump()
+                    if cancellable and state.progress.cancelled():
+                        self._stop()
+                        raise ImportCancelled()
+                if time.monotonic() > deadline:
+                    LOG.error(_("The scraper worker did not respond within %ds - terminating it."), timeout)
+                    self._stop()
+                    raise GeneanetAccessError(
+                        _("The scraper worker stopped responding (the browser may be stuck) and was terminated."))
+                continue
+
+            if message is None:
+                self._proc = None
+                raise GeneanetAccessError(_("The scraper worker process closed unexpectedly."))
+            if "event" in message:
+                text = _status_text(message)
+                if text and state.progress:
+                    state.progress.set_status(text)
+                continue
+            return message
 
     def scrape(self, url):
         response = self._request({"cmd": "scrape", "url": url}, self.SCRAPE_TIMEOUT)
@@ -104,13 +158,10 @@ class WorkerClient:
             return
         try:
             if self._proc.poll() is None:
-                self._request({"cmd": "close"}, self.CLOSE_TIMEOUT)
+                self._request({"cmd": "close"}, self.CLOSE_TIMEOUT, cancellable=False)
                 if self._proc is not None:
                     self._proc.wait(timeout=15)
         except Exception:
             LOG.debug(_("Failed to close the scraper worker cleanly, killing it"), exc_info=True)
         finally:
-            if self._proc is not None:
-                if self._proc.poll() is None:
-                    self._proc.kill()
-                self._proc = None
+            self._stop()

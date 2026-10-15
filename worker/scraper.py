@@ -33,6 +33,19 @@ LOG = logging.getLogger("GeneanetForGramps.worker")
 # singleton) is enough - no need for a class here.
 _driver = None
 _profile_dir = None
+# Called with (code, **params) to tell whoever drives this worker what it is
+# waiting for. Codes, not sentences: the worker cannot translate them.
+_status_callback = None
+
+
+def set_status_callback(callback):
+    global _status_callback
+    _status_callback = callback
+
+
+def _status(code, **params):
+    if _status_callback:
+        _status_callback(code, **params)
 
 
 def _free_tcp_port():
@@ -165,6 +178,30 @@ def _do_login(driver, purl):
         return False
 
 
+# Leading words of the other one-line facts Geneanet prints in the same
+# header block as the occupation (birth, baptism, death, burial...).
+# Anything else in that block is the occupation.
+_NON_OCCUPATION_PREFIXES = (
+    "né", "née", "décédé", "décédée", "baptisé", "baptisée", "inhumé", "inhumée",
+    "incinéré", "incinérée", "mort", "morte", "born", "deceased", "died",
+    "baptized", "baptised", "christened", "buried", "cremated",
+)
+
+
+def _parse_occupation(tree):
+    """The occupation is a plain <li> (no style attribute) in the list that
+    follows the name/Sosa header, before the first section title ("Parents").
+    Several lines are joined with "; "."""
+    items = tree.xpath(
+        '//div[@id="perso"]/div[@class="columns"]/h2[1]/preceding-sibling::ul/li[not(@style)]')
+    lines = []
+    for li in items:
+        text = " ".join(li.text_content().split())
+        if text and text.split()[0].lower().rstrip(".,:") not in _NON_OCCUPATION_PREFIXES:
+            lines.append(text)
+    return "; ".join(lines) or None
+
+
 def _is_profile_link(a):
     """True if this <a> can lead to another person's page. Footnote anchors
     next to a union (e.g. href="#note-wed-1", the marriage note) are also
@@ -209,6 +246,8 @@ def scrape_person(purl):
     login_attempted = False
     found = False
     for attempt in range(1, max_attempts + 1):
+        if attempt > 1:
+            _status("retry", attempt=attempt, max=max_attempts)
         driver.get(purl)
         elapsed = 0
         while elapsed < per_attempt_timeout:
@@ -224,6 +263,7 @@ def scrape_person(purl):
             if ('connexion' in current_url or 'login' in current_url) and not login_attempted:
                 login_attempted = True
                 LOG.info("Geneanet login required for %s.", purl)
+                _status("login")
                 if not _do_login(driver, purl):
                     raise GeneanetAccessError(
                         "Geneanet requires logging in to view %s, and auto-login could not "
@@ -235,6 +275,7 @@ def scrape_person(purl):
 
             if not notice_shown:
                 LOG.warning("Cloudflare verification detected. Please complete the challenge in the browser window.")
+                _status("cloudflare")
                 notice_shown = True
 
             time.sleep(poll_interval)
@@ -274,6 +315,7 @@ def scrape_person(purl):
 
     # Wait after a Geneanet request to be fair with the site
     # between 2 and 7 seconds
+    _status("pause")
     time.sleep(random.randint(2, 7))
 
     data = {
@@ -287,6 +329,7 @@ def scrape_person(purl):
         'g_deathdate': None,
         'g_deathplace': None,
         'g_deathplacecode': None,
+        'occupation': None,
         'spouseref': [],
         'marriagedate': [],
         'marriageplace': [],
@@ -391,6 +434,9 @@ def scrape_person(purl):
             data['g_deathplacecode'] = g_deathplacecode
     except (IndexError, AttributeError):
         data['g_deathplacecode'] = None
+
+    data['occupation'] = _parse_occupation(tree)
+    LOG.debug("Occupation: %s", data['occupation'])
 
     s = 0
     sname = []

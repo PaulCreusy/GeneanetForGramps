@@ -2,6 +2,7 @@
 import src.state as state
 from src.state import _, LOG
 from src.gbase import GBase
+from src import report
 
 from gramps.gen.db import DbTxn
 from gramps.gen.errors import HandleError
@@ -18,6 +19,7 @@ class GFamily(GBase):
         self.marriageplace = None
         self.marriageplacecode = None
         self.gid = None
+        self.created = False
         # Pointer to the Gramps Family instance
         self.family = None
         # Geneanet properties
@@ -41,6 +43,7 @@ class GFamily(GBase):
             state.db.add_family(grampsf, tran)
             self.gid = grampsf.gramps_id
             self.family = grampsf
+            self.created = True
             LOG.info(_("Create new Gramps Family: %s"), self.gid)
 
     def find_grampsf(self):
@@ -169,6 +172,7 @@ class GFamily(GBase):
                 state.db.commit_person(grampsp1, tran)
 
             self.get_or_create_event(self.family, 'marriage', tran)
+            report.current.family_done(self.family.gramps_id, self.created)
 
     def smartcopy(self):
         LOG.debug(_("Smart Copying Family"))
@@ -229,6 +233,9 @@ class GFamily(GBase):
                     LOG.info(_("No navigable link for a child of %s %s - %s %s (private profile), skipping"),
                               self.father.firstname, self.father.lastname,
                               self.mother.firstname, self.mother.lastname)
+                    report.current.skip(_("a child of %s %s and %s %s") % (
+                        self.father.firstname, self.father.lastname,
+                        self.mother.firstname, self.mother.lastname))
                     continue
                 child = geneanet_to_gramps(None, level - 1, None, c)
                 LOG.debug(_("=> Recursion on the child of %s - %s: %s %s"),
