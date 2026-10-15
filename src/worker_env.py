@@ -12,6 +12,12 @@ import os
 import subprocess
 import sys
 
+try:
+    from src.state import _
+except ImportError:  # used outside Gramps (scripts/test_worker.py)
+    def _(message):
+        return message
+
 LOG = logging.getLogger("GeneanetForGramps")
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -68,9 +74,9 @@ def _check_ensurepip():
     result = subprocess.run([sys.executable, "-c", "import ensurepip"], capture_output=True, text=True)
     if result.returncode != 0:
         raise WorkerEnvError(
-            "Cannot create the scraper worker's Python environment: the 'ensurepip' "
-            "module is not available for %s.\n\n"
-            "On Debian/Ubuntu, install it with: sudo apt install python3-venv\n\n%s"
+            _("Cannot create the scraper worker's Python environment: the 'ensurepip' "
+              "module is not available for %s.\n\n"
+              "On Debian/Ubuntu, install it with: sudo apt install python3-venv\n\n%s")
             % (sys.executable, (result.stderr or result.stdout or "").strip()))
 
 
@@ -80,10 +86,10 @@ def _check_flatpak():
     # a clear, actionable message instead of a confusing subprocess error.
     if os.path.exists("/.flatpak-info"):
         raise WorkerEnvError(
-            "GeneanetForGramps needs to run an external Python environment and a "
-            "browser, which this Flatpak-sandboxed Gramps does not allow by "
-            "default. Grant this Flatpak filesystem and process-spawning access "
-            "(e.g. via Flatseal), or use a non-Flatpak install of Gramps.")
+            _("GeneanetForGramps needs to run an external Python environment and a "
+              "browser, which this Flatpak-sandboxed Gramps does not allow by "
+              "default. Grant this Flatpak filesystem and process-spawning access "
+              "(e.g. via Flatseal), or use a non-Flatpak install of Gramps."))
 
 
 def _check_snap():
@@ -95,10 +101,10 @@ def _check_snap():
     # than failing with an obscure venv/browser error.
     if os.environ.get("SNAP") or sys.executable.startswith("/snap/"):
         raise WorkerEnvError(
-            "GeneanetForGramps cannot run inside the snap-packaged Gramps: the snap "
-            "is sandboxed and cannot create the scraper's Python environment or start "
-            "your system's browser. Install Gramps another way (e.g. 'sudo apt install "
-            "gramps', or a pip/pipx install) and install the addon there.")
+            _("GeneanetForGramps cannot run inside the snap-packaged Gramps: the snap "
+              "is sandboxed and cannot create the scraper's Python environment or start "
+              "your system's browser. Install Gramps another way (e.g. 'sudo apt install "
+              "gramps', or a pip/pipx install) and install the addon there."))
 
 
 def ensure_worker_env(progress_callback=None):
@@ -119,7 +125,7 @@ def ensure_worker_env(progress_callback=None):
         if progress_callback:
             progress_callback(msg)
 
-    report("Setting up the GeneanetForGramps scraper environment (first run, this can take a minute)...")
+    report(_("Setting up the GeneanetForGramps scraper environment (first run, this can take a minute)..."))
     os.makedirs(os.path.dirname(WORKER_ENV_DIR), exist_ok=True)
 
     try:
@@ -135,10 +141,10 @@ def ensure_worker_env(progress_callback=None):
             getattr(e, "stderr", None), getattr(e, "stdout", None),
         ])).strip() or str(e)
         raise WorkerEnvError(
-            "Failed to set up the scraper worker environment: %s" % detail) from e
+            _("Failed to set up the scraper worker environment: %s") % detail) from e
 
     with open(_MARKER_FILE, "w") as f:
         f.write(_requirements_hash())
 
-    report("Scraper environment ready.")
+    report(_("Scraper environment ready."))
     return _venv_python()

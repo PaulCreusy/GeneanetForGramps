@@ -270,7 +270,8 @@ def scrape_person(purl):
                         "complete it (no credentials configured, or login failed/blocked by "
                         "a CAPTCHA). Open this tool's options and fill in 'Geneanet username "
                         "(email)' and 'Geneanet password' under 'Geneanet Login (optional)', "
-                        "then try again." % purl)
+                        "then try again." % purl,
+                        code="login_failed", url=purl)
                 continue
 
             if not notice_shown:
@@ -293,7 +294,8 @@ def scrape_person(purl):
         raise GeneanetAccessError(
             "The page for %s never resolved to a person page after %d attempts "
             "(Cloudflare check likely still pending, or the site kept redirecting "
-            "elsewhere)." % (purl, max_attempts))
+            "elsewhere)." % (purl, max_attempts),
+            code="page_unresolved", url=purl, attempts=max_attempts)
 
     LOG.debug("URL: %s", driver.current_url)
     LOG.debug("Title: %s", driver.title)

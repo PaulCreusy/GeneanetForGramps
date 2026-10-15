@@ -1,13 +1,18 @@
 # GeneanetForGramps - Shared runtime state, configuration, and i18n
 import logging
+import os
 
 from gramps.gen.config import config
 from gramps.gen.const import GRAMPS_LOCALE as glocale, URL_MANUAL_PAGE
 
 from src.constants import ROOTURL  # noqa: F401 - re-exported for `from src.state import ROOTURL`
 
+# Gramps looks for <directory of the file given>/locale/<lang>/LC_MESSAGES/addon.mo:
+# the translations are shipped at the root of the addon, not inside src/.
+_ADDON_ROOT_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "GeneanetForGramps.py")
 try:
-    _trans = glocale.get_addon_translator(__file__)
+    _trans = glocale.get_addon_translator(_ADDON_ROOT_FILE)
 except ValueError:
     _trans = glocale.translation
 _ = _trans.gettext

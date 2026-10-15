@@ -38,7 +38,7 @@ class GFamily(GBase):
         self.mother = mother
 
     def create_grampsf(self):
-        with DbTxn("Geneanet import", state.db) as tran:
+        with DbTxn(_("Geneanet import"), state.db) as tran:
             grampsf = Family()
             state.db.add_family(grampsf, tran)
             self.gid = grampsf.gramps_id
@@ -136,7 +136,7 @@ class GFamily(GBase):
 
     def to_gramps(self):
         self.smartcopy()
-        with DbTxn("Geneanet import", state.db) as tran:
+        with DbTxn(_("Geneanet import"), state.db) as tran:
             if self.family is None:
                 self.family = Family()
                 state.db.add_family(self.family, tran)
@@ -199,7 +199,7 @@ class GFamily(GBase):
                     except AttributeError:
                         LOG.debug(_("No handle for this child"))
                     self.family.add_child_ref(childref)
-                    with DbTxn("Geneanet import", state.db) as tran:
+                    with DbTxn(_("Geneanet import"), state.db) as tran:
                         state.db.commit_family(self.family, tran)
                         child.grampsp.add_parent_family_handle(self.family.get_handle())
                         state.db.commit_person(child.grampsp, tran)

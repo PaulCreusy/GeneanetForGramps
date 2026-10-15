@@ -145,7 +145,7 @@ class GBase:
             event = Event()
             uptype = getattr(EventType, attr.upper())
             event.set_type(EventType(uptype))
-            event.set_description('Imported from Geaneanet')
+            event.set_description(_("Imported from Geneanet"))
             state.db.add_event(event, tran)
 
             eventref = EventRef()

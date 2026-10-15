@@ -6,7 +6,16 @@ class GeneanetAccessError(Exception):
     blocked: an unresolved Cloudflare challenge, or a login/CAPTCHA wall
     that auto-login could not get past. This must stop the import instead
     of silently continuing to parse an empty/garbage page, which otherwise
-    produces phantom nameless persons."""
+    produces phantom nameless persons.
+
+    `code` and `params` let the Gramps side show the message in the user's
+    language: the worker that raises it has no access to Gramps' translations.
+    """
+
+    def __init__(self, message="", code=None, **params):
+        super().__init__(message)
+        self.code = code
+        self.params = params
 
 
 class ImportCancelled(Exception):
