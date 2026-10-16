@@ -34,6 +34,11 @@ class ImportProgress:
         self._person = ""
         self._status = ""
 
+    def set_tree_size(self, size):
+        self.estimator.set_tree_size(size)
+        if size:
+            LOG.info(_("The Geneanet tree has %d persons"), size)
+
     def elapsed(self):
         return time.monotonic() - self.started
 
@@ -89,8 +94,13 @@ class ImportProgress:
         est = self.estimator
         lines = []
         if est.done:
-            lines.append(_("Page %(done)d of about %(total)d (estimated)") % {
-                "done": est.done, "total": round(est.total())})
+            if est.capped():
+                # The projection exceeds the tree: its size is the real limit.
+                lines.append(_("Page %(done)d of at most %(total)d (size of the Geneanet tree)") % {
+                    "done": est.done, "total": round(est.total())})
+            else:
+                lines.append(_("Page %(done)d of about %(total)d (estimated)") % {
+                    "done": est.done, "total": round(est.total())})
         if self._status:
             lines.append(self._status)
         elif self._person:

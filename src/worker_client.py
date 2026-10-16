@@ -65,6 +65,8 @@ class WorkerClient:
     # wedged on something Selenium never raises an exception for) and would
     # otherwise hang Gramps indefinitely with no error at all.
     SCRAPE_TIMEOUT = 240
+    # The worker itself gives up reading the tree size after 120s.
+    TREE_SIZE_TIMEOUT = 150
     CLOSE_TIMEOUT = 20
 
     def __init__(self):
@@ -160,6 +162,12 @@ class WorkerClient:
                     state.progress.set_status(text)
                 continue
             return message
+
+    def tree_size(self, url):
+        """Number of persons in the Geneanet tree url belongs to, or None if
+        it could not be read (the import does not depend on it)."""
+        response = self._request({"cmd": "tree_size", "url": url}, self.TREE_SIZE_TIMEOUT)
+        return (response.get("data") or {}).get("size")
 
     def scrape(self, url):
         response = self._request({"cmd": "scrape", "url": url}, self.SCRAPE_TIMEOUT)

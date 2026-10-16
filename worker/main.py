@@ -61,6 +61,13 @@ def main():
             scraper.close_driver()
             print(json.dumps({"ok": True}), flush=True)
             break
+        elif cmd == "tree_size":
+            try:
+                size = scraper.fetch_tree_size(request["url"])
+            except Exception:
+                LOG.error("Reading the tree size failed", exc_info=True)
+                size = None
+            print(json.dumps({"ok": True, "data": {"size": size}}), flush=True)
         elif cmd == "scrape":
             try:
                 data = scraper.scrape_person(request["url"])

@@ -128,3 +128,7 @@ dmypy.json
 .pyre/
 
 .vscode
+# Translations are part of the addon: the compiled catalogs must be in the repository
+# so that copying it into the Gramps plugins directory is enough.
+!po/template.pot
+!locale/**/*.mo
