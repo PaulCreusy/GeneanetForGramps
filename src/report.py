@@ -72,6 +72,9 @@ class ImportReport:
         ]
         lines += self._section(_("Skipped, private profile without a link"), self.skipped)
         lines += self._section(_("Not imported because of a conflict with the tree"), self.conflicts)
+        if self.conflicts:
+            lines.append(_("Fix these persons in Gramps, or enable Force Import to overwrite them, "
+                           "then run the import again."))
         lines += self._section(_("Pages that could not be read"), self.failures)
         return "\n".join(lines)
 
