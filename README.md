@@ -96,8 +96,8 @@ and the pages that could not be read. On the command line the same summary is
 printed.
 
 Persons already in your tree are detected by their Geneanet URL, then by name and
-dates. Names that differ only by punctuation or spacing (`Marie-Françoise` / `Marie Françoise`,
-`D'Hondt` / `D’Hondt`) are the same person. If a person really differs between Gramps and
+dates. Names that differ only by punctuation, spacing or case (`Marie-Françoise` / `Marie Françoise`,
+`D'Hondt` / `D’Hondt`, `de la Fontaine` / `De La Fontaine`) are the same person. If a person really differs between Gramps and
 Geneanet (name, birth or death date), the import does not stop: that person is left
 untouched, nothing is attached to it, its own ancestors are not explored, and it is listed
 in the final summary with both versions and the Geneanet address, so that you can fix it in
