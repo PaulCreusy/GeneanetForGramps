@@ -51,6 +51,9 @@ def _status_text(event):
     if code == "retry":
         return _("Page not recognized, retrying (attempt %(attempt)d of %(max)d)...") % {
             "attempt": event.get("attempt", 0), "max": event.get("max", 0)}
+    if code == "media":
+        return _("Downloading media %(index)d of %(total)d...") % {
+            "index": event.get("index", 0), "total": event.get("total", 0)}
     if code == "pause":
         return _("Short pause between two requests, to be fair with Geneanet...")
     return ""
@@ -67,6 +70,8 @@ class WorkerClient:
     SCRAPE_TIMEOUT = 240
     # The worker itself gives up reading the tree size after 120s.
     TREE_SIZE_TIMEOUT = 150
+    # Allowed between two media downloads, which have no fixed number.
+    MEDIA_TIMEOUT = 120
     CLOSE_TIMEOUT = 20
 
     def __init__(self):
@@ -160,6 +165,9 @@ class WorkerClient:
                 text = _status_text(message)
                 if text and state.progress:
                     state.progress.set_status(text)
+                if message.get("code") == "media":
+                    # Files keep coming in: the worker is working, not stuck.
+                    deadline = max(deadline, time.monotonic() + self.MEDIA_TIMEOUT)
                 continue
             return message
 
@@ -169,8 +177,11 @@ class WorkerClient:
         response = self._request({"cmd": "tree_size", "url": url}, self.TREE_SIZE_TIMEOUT)
         return (response.get("data") or {}).get("size")
 
-    def scrape(self, url):
-        response = self._request({"cmd": "scrape", "url": url}, self.SCRAPE_TIMEOUT)
+    def scrape(self, url, media_dir=None):
+        """Fetch and parse a person page; with media_dir, also download the
+        photos and documents attached to the person into that directory."""
+        response = self._request({"cmd": "scrape", "url": url, "media_dir": media_dir},
+                                 self.SCRAPE_TIMEOUT)
         if not response.get("ok"):
             error = response.get("error", _("Unknown scraper worker error"))
             if response.get("error_type") == "access":

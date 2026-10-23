@@ -20,6 +20,9 @@ class ImportReport:
         self._persons = {}  # gramps id -> created during this import?
         self._families = {}
         self.skipped = []
+        self.media_enabled = False  # set by the import: shows the media line
+        self.media_added = 0
+        self.media_failures = []
         self.conflicts = []
         self.failures = []
         self.outcome = COMPLETED
@@ -30,6 +33,12 @@ class ImportReport:
 
     def family_done(self, gid, created):
         self._families.setdefault(gid, created)
+
+    def media_attached(self):
+        self.media_added += 1
+
+    def media_failure(self, text):
+        self.media_failures.append(text)
 
     def skip(self, text):
         self.skipped.append(text)
@@ -70,9 +79,12 @@ class ImportReport:
             _("Families created: %d") % families_new,
             _("Families already in the tree: %d") % (len(self._families) - families_new),
         ]
+        if self.media_enabled:
+            lines.append(_("Media added: %d") % self.media_added)
         lines += self._section(_("Skipped, private profile without a link"), self.skipped)
         lines += self._section(_("Not imported because of a conflict with the tree"), self.conflicts)
         lines += self._section(_("Pages that could not be read"), self.failures)
+        lines += self._section(_("Media that could not be downloaded"), self.media_failures)
         return "\n".join(lines)
 
     @staticmethod

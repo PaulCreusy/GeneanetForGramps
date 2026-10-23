@@ -107,7 +107,7 @@ def _read_tree_size(purl):
 def g2gaction(gid, purl):
     if state.progress is None:
         state.progress = ImportProgress()
-    report.start()
+    report.start().media_enabled = state.media
     try:
         try:
             state.progress.set_tree_size(_read_tree_size(purl))

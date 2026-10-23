@@ -70,7 +70,7 @@ def main():
             print(json.dumps({"ok": True, "data": {"size": size}}), flush=True)
         elif cmd == "scrape":
             try:
-                data = scraper.scrape_person(request["url"])
+                data = scraper.scrape_person(request["url"], request.get("media_dir"))
                 print(json.dumps({"ok": True, "data": data}), flush=True)
             except GeneanetAccessError as e:
                 print(json.dumps({"ok": False, "error_type": "access", "error": str(e),
