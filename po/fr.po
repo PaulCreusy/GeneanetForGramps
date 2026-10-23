@@ -404,7 +404,7 @@ msgstr "(sans nom)"
 
 #: src/progress.py:99
 msgid "Page %(done)d of at most %(total)d (size of the Geneanet tree)"
-msgstr "Page %(done)d sur au plus %(total)d (taille de l'arbre Geneanet)"
+msgstr "Page %(done)d sur %(total)d au maximum (taille de l'arbre Geneanet)"
 
 #: src/progress.py:102
 msgid "Page %(done)d of about %(total)d (estimated)"
