@@ -4,7 +4,10 @@
 # Gramps' own process. It now runs in a separate Python process (its own
 # dedicated venv), so it never loads Selenium/lxml into Gramps' interpreter
 # and a Chrome crash here cannot take Gramps down with it.
+import base64
+import json
 import logging
+import os
 import random
 import re
 import socket
@@ -265,6 +268,103 @@ def fetch_tree_size(purl, timeout=120):
     return None
 
 
+def parse_media(page_source):
+    """The photos and documents attached to the person, as listed in the data
+    the page embeds for its own scripts (the media block of the page is drawn
+    by JavaScript from it, so it is not in the HTML itself):
+    GeneanetKeys elements -> gntGeneweb -> media. [] when there are none."""
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r'keys\.elements\s*,\s*', page_source):
+        try:
+            data, _end = decoder.raw_decode(page_source, match.end())
+        except ValueError:
+            continue
+        media = (data.get("gntGeneweb") or {}).get("media") if isinstance(data, dict) else None
+        if isinstance(media, list):
+            return [entry for entry in media if isinstance(entry, dict)]
+    return []
+
+
+# Runs in the page: downloads a file with the session and cookies of the
+# browser (so Cloudflare and the login are already handled) and hands it back
+# as base64, which is the only way to get bytes out of Selenium.
+_FETCH_JS = """
+var url = arguments[0], done = arguments[arguments.length - 1];
+fetch(url, {credentials: 'include'}).then(function(response) {
+  if (!response.ok) { done({error: 'HTTP ' + response.status}); return; }
+  var type = response.headers.get('Content-Type') || '';
+  return response.blob().then(function(blob) {
+    var reader = new FileReader();
+    reader.onloadend = function() { done({type: type, data: String(reader.result).split(',')[1] || ''}); };
+    reader.readAsDataURL(blob);
+  });
+}).catch(function(error) { done({error: String(error)}); });
+"""
+
+_EXTENSION_BY_TYPE = {
+    "image/jpeg": ".jpg", "image/png": ".png", "image/gif": ".gif",
+    "image/webp": ".webp", "image/tiff": ".tif", "application/pdf": ".pdf",
+}
+
+
+def _media_url(entry):
+    url = (entry.get("doc_images") or {}).get("original") or entry.get("doc_image") or ""
+    return "https:" + url if url.startswith("//") else url
+
+
+def _media_filename(entry, url, content_type):
+    """<id>_<title><extension>. The id comes first and never changes: a file
+    already downloaded by an earlier import is recognised by it."""
+    extension = os.path.splitext(urlparse(url).path)[1].lower()
+    if not re.fullmatch(r'\.[a-z0-9]{1,5}', extension):
+        extension = _EXTENSION_BY_TYPE.get(content_type.split(';')[0].strip().lower(), ".jpg")
+    title = re.sub(r'[^\w\- ]+', '', entry.get("doc_title") or "").strip()[:60].replace(' ', '_')
+    return "%s_%s%s" % (_media_key(entry), title or "media", extension)
+
+
+def _media_key(entry):
+    return str(entry.get("doc_part_id") or entry.get("doc_id") or entry.get("id"))
+
+
+def download_media(driver, entries, media_dir):
+    """Download the files of `entries` into media_dir. Returns the list of
+    what was obtained ({title, date, file, is_default}) and a list of
+    messages for what could not be. A file that is already there is reused."""
+    os.makedirs(media_dir, exist_ok=True)
+    driver.set_script_timeout(60)
+    obtained, errors = [], []
+    for index, entry in enumerate(entries, 1):
+        title = entry.get("doc_title") or ""
+        url = _media_url(entry)
+        if not url:
+            errors.append("%s (no address)" % (title or _media_key(entry)))
+            continue
+        _status("media", index=index, total=len(entries))
+        try:
+            key = _media_key(entry) + "_"
+            present = sorted(f for f in os.listdir(media_dir) if f.startswith(key))
+            if present:
+                path = os.path.join(media_dir, present[0])
+            else:
+                result = driver.execute_async_script(_FETCH_JS, url)
+                if not result or result.get("error"):
+                    raise RuntimeError((result or {}).get("error") or "no answer")
+                content = base64.b64decode(result.get("data") or "")
+                if not content:
+                    raise RuntimeError("empty file")
+                path = os.path.join(media_dir, _media_filename(entry, url, result.get("type") or ""))
+                with open(path + ".part", "wb") as f:
+                    f.write(content)
+                os.replace(path + ".part", path)
+                time.sleep(1)  # be fair with the site between two files
+            obtained.append({"title": title, "date": entry.get("doc_date"), "file": path,
+                             "is_default": bool(entry.get("is_default"))})
+        except (WebDriverException, RuntimeError, OSError, ValueError) as err:
+            LOG.warning("Could not download %s: %s", url, err)
+            errors.append("%s (%s)" % (title or url, err))
+    return obtained, errors
+
+
 def _is_profile_link(a):
     """True if this <a> can lead to another person's page. Footnote anchors
     next to a union (e.g. href="#note-wed-1", the marriage note) are also
@@ -278,7 +378,7 @@ def _is_profile_link(a):
     return bool(href) and not href.startswith(('#', 'javascript:', 'mailto:'))
 
 
-def scrape_person(purl):
+def scrape_person(purl, media_dir=None):
     """Fetch and parse a Geneanet person page. Returns a plain dict of the
     fields the caller previously found on GPerson.g_* / spouseref / fref /
     mref / etc after from_geneanet(). Raises GeneanetAccessError for an
@@ -395,6 +495,8 @@ def scrape_person(purl):
         'g_deathplace': None,
         'g_deathplacecode': None,
         'occupation': None,
+        'media': [],
+        'media_errors': [],
         'spouseref': [],
         'marriagedate': [],
         'marriageplace': [],
@@ -635,5 +737,9 @@ def scrape_person(purl):
         data['mref'] = prefl[1]
     except IndexError:
         data['mref'] = ""
+
+    if media_dir:
+        data['media'], data['media_errors'] = download_media(
+            driver, parse_media(page_content), media_dir)
 
     return data

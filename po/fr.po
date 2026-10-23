@@ -31,46 +31,50 @@ msgid "Includes all spouses (off by default)"
 msgstr "Inclut tous les conjoints (désactivé par défaut)"
 
 #: GeneanetForGramps.py:56
+msgid "Download the photos and documents of each person (off by default)"
+msgstr "Télécharge les photos et documents de chaque individu (désactivé par défaut)"
+
+#: GeneanetForGramps.py:58
 msgid "Number of level to explore (2 by default)"
 msgstr "Nombre de niveaux à explorer (2 par défaut)"
 
-#: GeneanetForGramps.py:57
+#: GeneanetForGramps.py:59
 msgid "Full path of the Gramps database (under $HOME/.gramps/grampsdb)"
 msgstr "Chemin complet de la base de données Gramps (sous $HOME/.gramps/grampsdb)"
 
-#: GeneanetForGramps.py:60
+#: GeneanetForGramps.py:62
 msgid "ID of the person to start from in Gramps"
 msgstr "Id de l'individu de départ dans Gramps"
 
-#: GeneanetForGramps.py:62
+#: GeneanetForGramps.py:64
 msgid "Force processing"
 msgstr "Forcer le traitement"
 
-#: GeneanetForGramps.py:64
+#: GeneanetForGramps.py:66
 msgid "Stop at the first error instead of skipping it"
 msgstr "S'arrêter à la première erreur au lieu de l'ignorer"
 
-#: GeneanetForGramps.py:65
+#: GeneanetForGramps.py:67
 msgid "Url of the person to search in Geneanet"
 msgstr "URL de l'individu à rechercher sur Geneanet"
 
-#: GeneanetForGramps.py:70
+#: GeneanetForGramps.py:72
 msgid "Please provide a person to search for"
 msgstr "Merci de fournir un individu à rechercher"
 
-#: GeneanetForGramps.py:86
+#: GeneanetForGramps.py:89
 msgid "Please provide a grampsfile to search into"
 msgstr "Merci de fournir une base Gramps pour la recherche"
 
-#: GeneanetForGramps.py:94
+#: GeneanetForGramps.py:97
 msgid "Opening the '%s' database failed: %s"
 msgstr "Échec de l'ouverture de la base « %s » : %s"
 
-#: GeneanetForGramps.py:95
+#: GeneanetForGramps.py:98
 msgid "Perhaps it needs updating."
 msgstr "Elle a peut-être besoin d'être mise à jour."
 
-#: GeneanetForGramps.py:108
+#: GeneanetForGramps.py:111
 msgid "Force mode activated"
 msgstr "Mode forcé activé"
 
@@ -102,7 +106,7 @@ msgstr "Copie de l'attribut %s de l'individu (valeur précédente : %s, nouvelle
 msgid "Unable to handle class %s in get_or_create_all_event"
 msgstr "Impossible de gérer la classe %s dans get_or_create_all_event"
 
-#: src/gbase.py:149 src/gperson.py:241
+#: src/gbase.py:149 src/gperson.py:319
 msgid "Imported from Geneanet"
 msgstr "Importé depuis Geneanet"
 
@@ -134,7 +138,7 @@ msgstr "Référence introuvable pour cette date : %s"
 msgid "Creating GFamily: %s %s - %s %s"
 msgstr "Création de la famille : %s %s - %s %s"
 
-#: src/gfamily.py:41 src/gfamily.py:139 src/gfamily.py:202 src/gperson.py:129
+#: src/gfamily.py:41 src/gfamily.py:139 src/gfamily.py:202 src/gperson.py:212
 msgid "Geneanet import"
 msgstr "Import Geneanet"
 
@@ -142,7 +146,7 @@ msgstr "Import Geneanet"
 msgid "Create new Gramps Family: %s"
 msgstr "Création d'une nouvelle famille Gramps : %s"
 
-#: src/gfamily.py:109 src/gperson.py:268
+#: src/gfamily.py:109 src/gperson.py:346
 msgid "Unable to retrieve id %s from the gramps db %s"
 msgstr "Impossible de récupérer l'identifiant %s dans la base Gramps %s"
 
@@ -170,83 +174,87 @@ msgstr "Fin de l'exploration de la famille %s %s - %s %s : il n'y a plus d'enfan
 msgid "Stopping exploration for family %s %s - %s %s as we reached level %s"
 msgstr "Fin de l'exploration de la famille %s %s - %s %s : le niveau %s est atteint"
 
-#: src/gperson.py:102
+#: src/gperson.py:100
 msgid "We failed to reach the server at %s"
 msgstr "Impossible de joindre le serveur à l'adresse %s"
 
-#: src/gperson.py:111
+#: src/gperson.py:109
 msgid "==> GENEANET Name (L%d): %s %s"
 msgstr "==> Nom GENEANET (L%d): %s %s"
 
-#: src/gperson.py:135
+#: src/gperson.py:202
+msgid "Adding media %s"
+msgstr "Ajout du média %s"
+
+#: src/gperson.py:218
 msgid "Create new Gramps Person: %s (%s %s)"
 msgstr "Création d'un nouvel individu Gramps : %s (%s %s)"
 
-#: src/gperson.py:201
+#: src/gperson.py:284
 msgid "Unable to sync unknown Gramps Person"
 msgstr "Impossible de synchroniser un individu Gramps inconnu"
 
-#: src/gperson.py:231
+#: src/gperson.py:306
 msgid "Occupation: %s"
 msgstr "Profession : %s"
 
-#: src/gperson.py:298
+#: src/gperson.py:376
 msgid "Unable to retrieve birth date for id %s"
 msgstr "Impossible de récupérer la date de naissance de %s"
 
-#: src/gperson.py:308
+#: src/gperson.py:386
 msgid "Unable to retrieve death date for id %s"
 msgstr "Impossible de récupérer la date de décès de %s"
 
-#: src/gperson.py:329
+#: src/gperson.py:406
 msgid "Father name: %s"
 msgstr "Nom du père : %s"
 
-#: src/gperson.py:337
+#: src/gperson.py:414
 msgid "Mother name: %s"
 msgstr "Nom de la mère : %s"
 
-#: src/gperson.py:354
+#: src/gperson.py:431
 msgid "No navigable link for spouse %d of %s %s (private profile), skipping"
 msgstr "Pas de lien pour le conjoint %d de %s %s (profil privé), ignoré"
 
-#: src/gperson.py:356
+#: src/gperson.py:433
 msgid "a spouse of %s %s"
 msgstr "un conjoint de %s %s"
 
-#: src/gperson.py:376
+#: src/gperson.py:453
 msgid "Unable to Initialize Family of %s %s: sex unknown"
 msgstr "Impossible de créer la famille de %s %s : sexe inconnu"
 
-#: src/gperson.py:423
+#: src/gperson.py:500
 msgid "The father was not imported (see the conflicts in the report), skipping"
 msgstr "Le père n'a pas été importé (voir les conflits dans le rapport), ignoré"
 
-#: src/gperson.py:425
+#: src/gperson.py:502
 msgid "No navigable link for the father (private profile), skipping"
 msgstr "Pas de lien pour le père (profil privé), ignoré"
 
-#: src/gperson.py:426
+#: src/gperson.py:503
 msgid "the father of %s %s"
 msgstr "le père de %s %s"
 
-#: src/gperson.py:437
+#: src/gperson.py:514
 msgid "The mother was not imported (see the conflicts in the report), skipping"
 msgstr "La mère n'a pas été importée (voir les conflits dans le rapport), ignorée"
 
-#: src/gperson.py:439
+#: src/gperson.py:516
 msgid "No navigable link for the mother (private profile), skipping"
 msgstr "Pas de lien pour la mère (profil privé), ignoré"
 
-#: src/gperson.py:440
+#: src/gperson.py:517
 msgid "the mother of %s %s"
 msgstr "la mère de %s %s"
 
-#: src/gperson.py:490
+#: src/gperson.py:572
 msgid "Stopping exploration as there are no more parents"
 msgstr "Arrêt de l'exploration, car il n'y a plus de parents"
 
-#: src/gui.py:19 src/gui.py:93
+#: src/gui.py:19 src/gui.py:101
 msgid "Geneanet Import Options"
 msgstr "Options de l'import Geneanet"
 
@@ -291,62 +299,70 @@ msgid "Import all spouses of the selected person"
 msgstr "Importation de tous les conjoints de l'individu sélectionné"
 
 #: src/gui.py:46
+msgid "Import media"
+msgstr "Importer les médias"
+
+#: src/gui.py:48
+msgid "Download the photos and documents attached to each person on Geneanet and add them to the person in Gramps. The files are stored in a Geneanet folder of the media base path of the tree. This can take a long time."
+msgstr "Télécharge les photos et documents rattachés à chaque individu sur Geneanet et les ajoute à l'individu dans Gramps. Les fichiers sont enregistrés dans un dossier Geneanet du chemin de base des médias de l'arbre. Cela peut être long."
+
+#: src/gui.py:54
 msgid "Level of Import"
 msgstr "Niveau de l'import"
 
-#: src/gui.py:48
+#: src/gui.py:56
 msgid "Maximum of upper or lower search done in the family tree - keep it small"
 msgstr "Niveau maximum de recherche effectuée dans l'arbre familial sur les ascendants et descendants - gardez le petit"
 
-#: src/gui.py:52
+#: src/gui.py:60
 msgid "Force Import"
 msgstr "Forcer l'import"
 
-#: src/gui.py:53
+#: src/gui.py:61
 msgid "Force import of existing persons"
 msgstr "Forcer l'import des individus existants"
 
-#: src/gui.py:57
+#: src/gui.py:65
 msgid "Verbosity"
 msgstr "Verbosité"
 
-#: src/gui.py:58
+#: src/gui.py:66
 msgid "Verbosity level from 0 (minimal) to 3 (very verbose)"
 msgstr "Niveau de verbosité de 0 (minimum) à 3 (maximum)"
 
-#: src/gui.py:68 src/worker_client.py:35
+#: src/gui.py:76 src/worker_client.py:35
 msgid "Geneanet Login (optional)"
 msgstr "Connexion Geneanet (facultatif)"
 
-#: src/gui.py:70 src/worker_client.py:34
+#: src/gui.py:78 src/worker_client.py:34
 msgid "Geneanet username (email)"
 msgstr "Identifiant Geneanet (e-mail)"
 
-#: src/gui.py:72
+#: src/gui.py:80
 msgid "Only needed if Geneanet asks you to log in to view some pages. Leave blank to keep the currently saved username, if any."
 msgstr "Nécessaire seulement si Geneanet demande de se connecter pour voir certaines pages. Laissez vide pour conserver l'identifiant enregistré, s'il y en a un."
 
-#: src/gui.py:76 src/worker_client.py:35
+#: src/gui.py:84 src/worker_client.py:35
 msgid "Geneanet password"
 msgstr "Mot de passe Geneanet"
 
-#: src/gui.py:78
+#: src/gui.py:86
 msgid "Stored in plain text in %s on this computer. Leave blank to keep the currently saved password, if any."
 msgstr "Enregistré en clair dans %s sur cet ordinateur. Laissez vide pour conserver le mot de passe enregistré, s'il y en a un."
 
-#: src/gui.py:90
+#: src/gui.py:98
 msgid "Geneanet Import Tool"
 msgstr "Outil d'import de Geneanet"
 
-#: src/gui.py:98
+#: src/gui.py:106
 msgid "Importing from %s for user %s"
 msgstr "Import de %s pour l'utilisateur %s"
 
-#: src/gui.py:99
+#: src/gui.py:107
 msgid "Geneanet Import into Gramps"
 msgstr "Import de Geneanet dans Gramps"
 
-#: src/gui.py:134
+#: src/gui.py:143
 msgid "Saved Geneanet login for %s to %s"
 msgstr "Identifiants Geneanet de %s enregistrés dans %s"
 
@@ -362,7 +378,7 @@ msgstr "Naissance/décès - Gramps : %(gramps)s / Geneanet : %(geneanet)s (%(url
 msgid "Reading the size of the Geneanet tree..."
 msgstr "Lecture de la taille de l'arbre Geneanet..."
 
-#: src/importer.py:145 src/report.py:51
+#: src/importer.py:145 src/report.py:60
 msgid "Geneanet import stopped"
 msgstr "Import Geneanet interrompu"
 
@@ -406,63 +422,71 @@ msgstr "environ %s restant"
 msgid "Import finished: %d Geneanet pages processed in %s"
 msgstr "Import terminé : %d pages Geneanet traitées en %s"
 
-#: src/report.py:49
+#: src/report.py:58
 msgid "Geneanet import finished"
 msgstr "Import Geneanet terminé"
 
-#: src/report.py:50
+#: src/report.py:59
 msgid "Geneanet import cancelled"
 msgstr "Import Geneanet annulé"
 
-#: src/report.py:59
+#: src/report.py:68
 msgid "The import was cancelled before the end: what is below is what was done so far."
 msgstr "L'import a été annulé avant la fin : ce qui suit est ce qui a été fait jusque-là."
 
-#: src/report.py:61
+#: src/report.py:70
 msgid "The import had to stop before the end: what is below is what was done so far."
 msgstr "L'import a dû s'arrêter avant la fin : ce qui suit est ce qui a été fait jusque-là."
 
-#: src/report.py:63
+#: src/report.py:72
 msgid "Reason: %s"
 msgstr "Raison : %s"
 
-#: src/report.py:66
+#: src/report.py:75
 msgid "Geneanet pages processed: %(pages)d (in %(time)s)"
 msgstr "Pages Geneanet traitées : %(pages)d (en %(time)s)"
 
-#: src/report.py:68
+#: src/report.py:77
 msgid "Persons created: %d"
 msgstr "Individus créés : %d"
 
-#: src/report.py:69
+#: src/report.py:78
 msgid "Persons already in the tree: %d"
 msgstr "Individus déjà dans l'arbre : %d"
 
-#: src/report.py:70
+#: src/report.py:79
 msgid "Families created: %d"
 msgstr "Familles créées : %d"
 
-#: src/report.py:71
+#: src/report.py:80
 msgid "Families already in the tree: %d"
 msgstr "Familles déjà dans l'arbre : %d"
 
-#: src/report.py:73
+#: src/report.py:83
+msgid "Media added: %d"
+msgstr "Médias ajoutés : %d"
+
+#: src/report.py:84
 msgid "Skipped, private profile without a link"
 msgstr "Ignorés, profil privé sans lien"
 
-#: src/report.py:74
+#: src/report.py:85
 msgid "Not imported because of a conflict with the tree"
 msgstr "Non importés à cause d'un conflit avec l'arbre"
 
-#: src/report.py:76
+#: src/report.py:87
 msgid "Fix these persons in Gramps, or enable Force Import to overwrite them, then run the import again."
 msgstr "Corrigez ces individus dans Gramps, ou activez « Forcer l'import » pour les écraser, puis relancez l'import."
 
-#: src/report.py:78
+#: src/report.py:89
 msgid "Pages that could not be read"
 msgstr "Pages qui n'ont pas pu être lues"
 
-#: src/report.py:88
+#: src/report.py:90
+msgid "Media that could not be downloaded"
+msgstr "Médias qui n'ont pas pu être téléchargés"
+
+#: src/report.py:100
 msgid "... and %d more"
 msgstr "... et %d autres"
 
@@ -487,26 +511,30 @@ msgid "Page not recognized, retrying (attempt %(attempt)d of %(max)d)..."
 msgstr "Page non reconnue, nouvelle tentative (essai %(attempt)d sur %(max)d)..."
 
 #: src/worker_client.py:55
+msgid "Downloading media %(index)d of %(total)d..."
+msgstr "Téléchargement du média %(index)d sur %(total)d..."
+
+#: src/worker_client.py:58
 msgid "Short pause between two requests, to be fair with Geneanet..."
 msgstr "Courte pause entre deux requêtes, par égard pour Geneanet..."
 
-#: src/worker_client.py:111
+#: src/worker_client.py:116
 msgid "The scraper worker process is not running."
 msgstr "Le processus de récupération des pages n'est pas en cours d'exécution."
 
-#: src/worker_client.py:150
+#: src/worker_client.py:155
 msgid "The scraper worker did not respond within %ds - terminating it."
 msgstr "Le processus de récupération n'a pas répondu en %d s : il est arrêté."
 
-#: src/worker_client.py:153
+#: src/worker_client.py:158
 msgid "The scraper worker stopped responding (the browser may be stuck) and was terminated."
 msgstr "Le processus de récupération ne répond plus (le navigateur est peut-être bloqué) et a été arrêté."
 
-#: src/worker_client.py:158
+#: src/worker_client.py:163
 msgid "The scraper worker process closed unexpectedly."
 msgstr "Le processus de récupération s'est arrêté de façon inattendue."
 
-#: src/worker_client.py:175
+#: src/worker_client.py:186
 msgid "Unknown scraper worker error"
 msgstr "Erreur inconnue du processus de récupération"
 

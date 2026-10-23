@@ -52,6 +52,8 @@ def main():
                         action='store_true', help=_("Includes descendants (off by default)"))
     parser.add_argument("-s", "--spouses", default=False, action='store_true',
                         help=_("Includes all spouses (off by default)"))
+    parser.add_argument("-m", "--media", default=False, action='store_true',
+                        help=_("Download the photos and documents of each person (off by default)"))
     parser.add_argument("-l", "--level", default=2, type=int,
                         help=_("Number of level to explore (2 by default)"))
     parser.add_argument("-g", "--grampsfile", type=str, help=_(
@@ -78,6 +80,7 @@ def main():
     state.ascendants = args.ascendants
     state.descendants = args.descendants
     state.spouses = args.spouses
+    state.media = args.media
     state.LEVEL = args.level
     state.configure_logging()
 

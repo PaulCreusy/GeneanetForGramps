@@ -7,23 +7,20 @@ from src.exceptions import GeneanetAccessError, ImportCancelled
 from src import report
 from src.names import same_name
 
+import os
+import re
+
 from gramps.gen.db import DbTxn
 from gramps.gen.errors import HandleError
-from gramps.gen.lib import Person, Name, NameType, EventType, Url, UrlType, Attribute, AttributeType
+from gramps.gen.lib import (
+    Person, Name, NameType, Event, EventRef, EventType, EventRoleType,
+    Url, UrlType, Media, MediaRef, Date,
+)
+from gramps.gen.mime import get_type
+from gramps.gen.utils.file import media_path, media_path_full, relative_path
 
-
-def _occupation_type():
-    """Gramps 6.0 has a native Occupation attribute type (shown as
-    "Profession" in French); older versions only get a custom one."""
-    code = getattr(AttributeType, "OCCUPATION", None)
-    if code is not None:
-        return AttributeType(code)
-    return AttributeType((AttributeType.CUSTOM, "Occupation"))
-
-
-def _is_occupation(attr_type):
-    code = getattr(AttributeType, "OCCUPATION", None)
-    return attr_type == (code if code is not None else "Occupation")
+# Subfolder of the media base path of the tree where the files are stored.
+MEDIA_SUBDIRECTORY = "Geneanet"
 
 
 class GPerson(GBase):
@@ -62,6 +59,7 @@ class GPerson(GBase):
         self.g_deathplace = None
         self.g_deathplacecode = None
         self.g_occupation = None
+        self.g_media = []  # [{title, date, file, is_default}] downloaded for this person
         self.url = ""
         self.spouseref = []
         self.fref = ""
@@ -93,7 +91,7 @@ class GPerson(GBase):
         if not purl:
             return ()
         try:
-            data = state.get_worker_client().scrape(purl)
+            data = state.get_worker_client().scrape(purl, self._media_directory())
         except (GeneanetAccessError, ImportCancelled):
             # Always fatal: never continue parsing a page we could not
             # legitimately reach, as that produces phantom, nameless persons.
@@ -117,6 +115,9 @@ class GPerson(GBase):
             self.g_deathplace = data['g_deathplace']
             self.g_deathplacecode = data['g_deathplacecode']
             self.g_occupation = data.get('occupation')
+            self.g_media = data.get('media') or []
+            for error in data.get('media_errors') or []:
+                report.current.media_failure(error)
             self.spouseref = data['spouseref']
             self.marriagedate = data['marriagedate']
             self.marriageplace = data['marriageplace']
@@ -124,6 +125,88 @@ class GPerson(GBase):
             self.childref = data['childref']
             self.fref = data['fref']
             self.mref = data['mref']
+
+    @staticmethod
+    def _occupation_event(grampsp):
+        """The first Occupation event of the person, or None."""
+        for ref in grampsp.get_event_ref_list():
+            event = state.db.get_event_from_handle(ref.ref)
+            if event.get_type() == EventType.OCCUPATION:
+                return event
+        return None
+
+    def _set_occupation_event(self, grampsp, tran):
+        """The occupation is an Occupation event whose description is the text
+        found on Geneanet, with no date and no place (Geneanet gives none).
+        An existing Occupation event is updated, not duplicated."""
+        event = self._occupation_event(grampsp)
+        if event is None:
+            event = Event()
+            event.set_type(EventType(EventType.OCCUPATION))
+            event.set_description(self.occupation)
+            state.db.add_event(event, tran)
+            ref = EventRef()
+            ref.set_role(EventRoleType.PRIMARY)
+            ref.set_reference_handle(event.get_handle())
+            grampsp.add_event_ref(ref)
+        else:
+            event.set_description(self.occupation)
+        state.db.commit_event(event, tran)
+
+    @staticmethod
+    def _media_directory():
+        """Where the media files of this import are stored (and so where the
+        worker downloads them): a Geneanet folder in the media base path of
+        the tree. None when the media are not requested."""
+        if not state.media:
+            return None
+        return os.path.join(media_path(state.db), MEDIA_SUBDIRECTORY)
+
+    @staticmethod
+    def _media_date(text):
+        """A Gramps Date from "YYYY", "YYYY-MM" or "YYYY-MM-DD", else None."""
+        match = re.fullmatch(r"(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?", (text or "").strip())
+        if not match:
+            return None
+        year, month, day = (int(part) if part else 0 for part in match.groups())
+        date = Date()
+        date.set_yr_mon_day(year, month, day)
+        return date
+
+    def _attach_media(self, grampsp, tran):
+        """Add the downloaded files to the person as Media objects. A file
+        already known to the tree is reused, and one already attached to this
+        person is left alone, so importing again adds nothing twice. The
+        default photo of Geneanet goes first (the first media of a person is its
+        portrait in Gramps)."""
+        base = media_path(state.db)
+        # Compared by full path: the tree may store the same file as a path
+        # relative to the base path or as an absolute one.
+        known = {os.path.normpath(media_path_full(state.db, media.get_path())): media
+                 for media in state.db.iter_media()}
+        attached = {ref.ref for ref in grampsp.get_media_list()}
+        for item in sorted(self.g_media, key=lambda m: not m.get("is_default")):
+            full = os.path.normpath(item["file"])
+            media = known.get(full)
+            if media is None:
+                path = relative_path(item["file"], base)
+                media = Media()
+                media.set_path(path)
+                media.set_mime_type(get_type(item["file"]))
+                media.set_description(item.get("title") or os.path.basename(item["file"]))
+                date = self._media_date(item.get("date"))
+                if date:
+                    media.set_date_object(date)
+                state.db.add_media(media, tran)
+                known[full] = media
+                LOG.info(_("Adding media %s"), path)
+            if media.get_handle() in attached:
+                continue
+            ref = MediaRef()
+            ref.set_reference_handle(media.get_handle())
+            grampsp.add_media_reference(ref)
+            attached.add(media.get_handle())
+            report.current.media_attached()
 
     def create_grampsp(self):
         with DbTxn(_("Geneanet import"), state.db) as tran:
@@ -219,16 +302,11 @@ class GPerson(GBase):
                 self.get_or_create_event(grampsp, ev, tran)
 
             if self.occupation:
-                for attr in grampsp.get_attribute_list():
-                    if _is_occupation(attr.get_type()):
-                        attr.set_value(self.occupation)
-                        break
-                else:
-                    attr = Attribute()
-                    attr.set_type(_occupation_type())
-                    attr.set_value(self.occupation)
-                    grampsp.add_attribute(attr)
+                self._set_occupation_event(grampsp, tran)
                 LOG.info(_("Occupation: %s"), self.occupation)
+
+            if state.media and self.g_media:
+                self._attach_media(grampsp, tran)
 
             # Store the importation place as an Internet note
             if self.url != "":
@@ -307,10 +385,9 @@ class GPerson(GBase):
         except AttributeError:
             LOG.warning(_("Unable to retrieve death date for id %s"), self.gid)
 
-        for attr in self.grampsp.get_attribute_list():
-            if _is_occupation(attr.get_type()):
-                self.occupation = attr.get_value()
-                break
+        event = self._occupation_event(self.grampsp)
+        if event:
+            self.occupation = event.get_description()
 
         # Deal with the parents now, as they necessarily exist
         self.father = GPerson(self.level + 1)

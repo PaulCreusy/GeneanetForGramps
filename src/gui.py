@@ -42,6 +42,14 @@ class GeneanetForGrampsOptions(MenuToolOptions):
         self.__gui_spo.set_help(_("Import all spouses of the selected person"))
         menu.add_option(category_name, "gui_spo", self.__gui_spo)
 
+        gui_media = CONFIG.get('pref.media')
+        self.__gui_media = BooleanOption(_("Import media"), gui_media)
+        self.__gui_media.set_help(
+            _("Download the photos and documents attached to each person on Geneanet "
+              "and add them to the person in Gramps. The files are stored in a "
+              "Geneanet folder of the media base path of the tree. This can take a long time."))
+        menu.add_option(category_name, "gui_media", self.__gui_media)
+
         gui_lvl = CONFIG.get('pref.level')
         self.__gui_level = NumberOption(_("Level of Import"), gui_lvl, 1, 100)
         self.__gui_level.set_help(
@@ -117,6 +125,7 @@ class GeneanetForGramps(PluginWindows.ToolManagedWindowBatch):
         state.ascendants = self.options.menu.get_option_by_name('gui_asc').get_value()
         state.descendants = self.options.menu.get_option_by_name('gui_dsc').get_value()
         state.spouses = self.options.menu.get_option_by_name('gui_spo').get_value()
+        state.media = self.options.menu.get_option_by_name('gui_media').get_value()
         state.LEVEL = self.options.menu.get_option_by_name('gui_level').get_value()
         state.verbosity = self.options.menu.get_option_by_name('gui_verb').get_value()
         state.configure_logging()

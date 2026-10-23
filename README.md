@@ -67,15 +67,30 @@ Open **Tools ▸ Family Tree Processing ▸ Import Geneanet data for Gramps**.
 | Center Person | The Gramps person the import starts from. |
 | Geneanet URL for the selected person | The Geneanet page of that same person, e.g. `https://gw.geneanet.org/agnesy?lang=fr&n=queffelec&oc=17&p=marie+anne`. |
 | Import ascendants / descendants / spouses | What to follow from the starting person. |
+| Import media | Download the photos and documents attached to each person (see below). Off by default. |
 | Level of Import | How many generations to follow. Keep it small. |
 | Force Import | Overwrite existing data instead of stopping on a conflict. |
 | Verbosity | 0 (quiet) to 3 (very verbose), logged to the terminal Gramps was started from. |
 | Geneanet username / password | Optional, see below. |
 
-The occupation shown on the Geneanet page, when there is one, is stored in an
-**Occupation** attribute on the person (displayed as *Profession* in a French
-Gramps; on Gramps older than 6.0 it is a custom attribute named `Occupation`).
-An existing value is only replaced when **Force Import** is enabled.
+The occupation shown on the Geneanet page, when there is one, is stored as an
+**Occupation** event of the person (*Profession* in a French Gramps), whose description
+is the text of Geneanet, for example `Cultivateur, garçon brasseur`. Geneanet gives no
+date and no place for it, so the event has none. In a GEDCOM export it becomes an
+`OCCU` line. An existing Occupation event is updated rather than duplicated, and its
+text is only replaced when **Force Import** is enabled. (Versions 1.2 to 1.6 stored the
+occupation in an *Occupation attribute* instead: those attributes are left as they are
+in your tree and can be deleted by hand.)
+
+**Import media** downloads the photos and documents listed in the "Photos et documents
+d'archives" block of each person's page. The files are saved in a `Geneanet` folder inside
+the *Base media path* of the tree (*Edit > Preferences > Family Tree*, or your Pictures
+folder when there is none), named `<Geneanet id>_<title>.<extension>`, and
+added to the person as media objects with the title and date of Geneanet; the default
+photo of Geneanet comes first, which makes it the portrait. A file that is already there
+is not downloaded again, and importing twice does not attach anything twice. The files are
+fetched through the browser window, so this works behind Cloudflare and the login, but it can
+make an import much longer. A file that cannot be downloaded is listed in the final summary.
 
 A progress window is shown during the import. Its bar is an **estimate**: the size
 of a Geneanet tree is unknown until it has been walked, so the total is projected
@@ -123,10 +138,10 @@ to be solved by hand.
 The tool also runs outside the Gramps GUI against a database:
 
 ```
-python3 GeneanetForGramps.py -g <family tree> -i <gramps id digits, e.g. 0001 for I0001> [-a] [-d] [-s] [-l LEVEL] [-f] [-v ...] <geneanet url>
+python3 GeneanetForGramps.py -g <family tree> -i <gramps id digits, e.g. 0001 for I0001> [-a] [-d] [-s] [-m] [-l LEVEL] [-f] [-v ...] <geneanet url>
 ```
 
-`-a`/`-d`/`-s` include ascendants/descendants/spouses, `-l` is the depth,
+`-a`/`-d`/`-s` include ascendants/descendants/spouses, `-m` downloads the media, `-l` is the depth,
 `-f` forces overwrites, `-e` stops at the first error, and each `-v` raises the
 verbosity. Credentials for the command line are read from the same
 `credentials.ini` file (create it by hand):

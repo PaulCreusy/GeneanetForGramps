@@ -74,6 +74,7 @@ force = False
 ascendants = False
 descendants = False
 spouses = False
+media = False
 LEVEL = 2
 GUIMODE = False
 progress = None
@@ -85,6 +86,7 @@ CONFIG = config.register_manager(CONFIG_NAME)
 CONFIG.register("pref.ascendants", ascendants)
 CONFIG.register("pref.descendants", descendants)
 CONFIG.register("pref.spouses", spouses)
+CONFIG.register("pref.media", media)
 CONFIG.register("pref.level", LEVEL)
 CONFIG.register("pref.force", force)
 CONFIG.register("pref.verbosity", verbosity)
@@ -95,6 +97,7 @@ def save_config():
     CONFIG.set("pref.ascendants", ascendants)
     CONFIG.set("pref.descendants", descendants)
     CONFIG.set("pref.spouses", spouses)
+    CONFIG.set("pref.media", media)
     CONFIG.set("pref.level", LEVEL)
     CONFIG.set("pref.force", force)
     CONFIG.set("pref.verbosity", verbosity)
