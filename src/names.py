@@ -18,6 +18,15 @@ def normalize_name(text):
     return " ".join("".join(chars).split()).casefold()
 
 
+def is_unknown(firstname, lastname):
+    """True for a person Geneanet shows as "? ?": every part of the name that
+    is given is only question marks, and there is at least one. Nothing given
+    at all is a page that could not be read, not an unknown person."""
+    parts = [(part or "").strip() for part in (firstname, lastname)]
+    parts = [part for part in parts if part]
+    return bool(parts) and all(set(part) == {"?"} for part in parts)
+
+
 def same_name(first, second):
     """True when the two names differ at most by punctuation, spacing, accents and case."""
     return normalize_name(first) == normalize_name(second)

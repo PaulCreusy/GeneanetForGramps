@@ -445,6 +445,10 @@ class GPerson(GBase):
                     spouse.spouse.append(self)
                     LOG.debug(_("=> Initialize Family of %s %s & %s %s"),
                               self.firstname, self.lastname, spouse.firstname, spouse.lastname)
+                if spouse is None:
+                    # Not imported (unknown person, conflict): no family.
+                    i = i + 1
+                    continue
                 if self.sex == 'M':
                     f = GFamily(self, spouse)
                 elif self.sex == 'F':

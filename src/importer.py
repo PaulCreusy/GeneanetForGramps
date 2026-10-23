@@ -8,7 +8,7 @@ from src.progress import ImportProgress
 from src import report
 from src.exceptions import GeneanetAccessError, ImportCancelled
 from src.worker_env import WorkerEnvError
-from src.names import same_name
+from src.names import same_name, is_unknown
 from gramps.gui.dialog import ErrorDialog, InfoDialog
 
 
@@ -53,6 +53,13 @@ def geneanet_to_gramps(p, level, gid, url):
     state.progress.page_started(url, level)
     p.from_geneanet(url)
     state.progress.page_done(p, level, url)
+    if is_unknown(p.g_firstname, p.g_lastname):
+        # A person Geneanet knows nothing about has no date either, so every
+        # one of them would be matched with, and merged into, the same Gramps
+        # person: they are not imported.
+        LOG.info(_("Unknown person (%s), not imported"), url)
+        report.current.unknown_person(url)
+        return _skip(p)
     p.from_gramps(gid)
 
     if gid is not None:

@@ -238,6 +238,9 @@ class GFamily(GBase):
                         self.mother.firstname, self.mother.lastname))
                     continue
                 child = geneanet_to_gramps(None, level - 1, None, c)
+                if child is None:
+                    # Not imported (unknown person, conflict): nothing to attach.
+                    continue
                 LOG.debug(_("=> Recursion on the child of %s - %s: %s %s"),
                           self.father.lastname, self.mother.lastname, child.firstname, child.lastname)
                 self.add_child(child)

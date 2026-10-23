@@ -166,11 +166,11 @@ msgstr ""
 msgid "a child of %s %s and %s %s"
 msgstr ""
 
-#: src/gfamily.py:263
+#: src/gfamily.py:266
 msgid "Stopping exploration for family %s %s - %s %s as there are no more children"
 msgstr ""
 
-#: src/gfamily.py:269
+#: src/gfamily.py:272
 msgid "Stopping exploration for family %s %s - %s %s as we reached level %s"
 msgstr ""
 
@@ -222,35 +222,35 @@ msgstr ""
 msgid "a spouse of %s %s"
 msgstr ""
 
-#: src/gperson.py:453
+#: src/gperson.py:457
 msgid "Unable to Initialize Family of %s %s: sex unknown"
 msgstr ""
 
-#: src/gperson.py:500
+#: src/gperson.py:504
 msgid "The father was not imported (see the conflicts in the report), skipping"
 msgstr ""
 
-#: src/gperson.py:502
+#: src/gperson.py:506
 msgid "No navigable link for the father (private profile), skipping"
 msgstr ""
 
-#: src/gperson.py:503
+#: src/gperson.py:507
 msgid "the father of %s %s"
 msgstr ""
 
-#: src/gperson.py:514
+#: src/gperson.py:518
 msgid "The mother was not imported (see the conflicts in the report), skipping"
 msgstr ""
 
-#: src/gperson.py:516
+#: src/gperson.py:520
 msgid "No navigable link for the mother (private profile), skipping"
 msgstr ""
 
-#: src/gperson.py:517
+#: src/gperson.py:521
 msgid "the mother of %s %s"
 msgstr ""
 
-#: src/gperson.py:572
+#: src/gperson.py:576
 msgid "Stopping exploration as there are no more parents"
 msgstr ""
 
@@ -366,27 +366,31 @@ msgstr ""
 msgid "Saved Geneanet login for %s to %s"
 msgstr ""
 
-#: src/importer.py:59
+#: src/importer.py:60
+msgid "Unknown person (%s), not imported"
+msgstr ""
+
+#: src/importer.py:68
 msgid "Name - Gramps: %(gramps)s / Geneanet: %(geneanet)s (%(url)s)"
 msgstr ""
 
-#: src/importer.py:79
+#: src/importer.py:88
 msgid "Birth/death - Gramps: %(gramps)s / Geneanet: %(geneanet)s (%(url)s)"
 msgstr ""
 
-#: src/importer.py:105
+#: src/importer.py:114
 msgid "Reading the size of the Geneanet tree..."
 msgstr ""
 
-#: src/importer.py:145 src/report.py:60
+#: src/importer.py:163 src/report.py:64
 msgid "Geneanet import stopped"
 msgstr ""
 
-#: src/importer.py:147
+#: src/importer.py:165
 msgid "Geneanet import stopped."
 msgstr ""
 
-#: src/importer.py:150
+#: src/importer.py:168
 msgid "Geneanet import cancelled by the user."
 msgstr ""
 
@@ -422,71 +426,75 @@ msgstr ""
 msgid "Import finished: %d Geneanet pages processed in %s"
 msgstr ""
 
-#: src/report.py:58
+#: src/report.py:62
 msgid "Geneanet import finished"
 msgstr ""
 
-#: src/report.py:59
+#: src/report.py:63
 msgid "Geneanet import cancelled"
 msgstr ""
 
-#: src/report.py:68
+#: src/report.py:72
 msgid "The import was cancelled before the end: what is below is what was done so far."
 msgstr ""
 
-#: src/report.py:70
+#: src/report.py:74
 msgid "The import had to stop before the end: what is below is what was done so far."
 msgstr ""
 
-#: src/report.py:72
+#: src/report.py:76
 msgid "Reason: %s"
 msgstr ""
 
-#: src/report.py:75
+#: src/report.py:79
 msgid "Geneanet pages processed: %(pages)d (in %(time)s)"
 msgstr ""
 
-#: src/report.py:77
+#: src/report.py:81
 msgid "Persons created: %d"
 msgstr ""
 
-#: src/report.py:78
+#: src/report.py:82
 msgid "Persons already in the tree: %d"
 msgstr ""
 
-#: src/report.py:79
+#: src/report.py:83
 msgid "Families created: %d"
 msgstr ""
 
-#: src/report.py:80
+#: src/report.py:84
 msgid "Families already in the tree: %d"
 msgstr ""
 
-#: src/report.py:83
+#: src/report.py:87
 msgid "Media added: %d"
 msgstr ""
 
-#: src/report.py:84
+#: src/report.py:88
 msgid "Skipped, private profile without a link"
 msgstr ""
 
-#: src/report.py:85
-msgid "Not imported because of a conflict with the tree"
-msgstr ""
-
-#: src/report.py:87
-msgid "Fix these persons in Gramps, or enable Force Import to overwrite them, then run the import again."
-msgstr ""
-
 #: src/report.py:89
-msgid "Pages that could not be read"
+msgid "Skipped, unknown person (name \"?\")"
 msgstr ""
 
 #: src/report.py:90
+msgid "Not imported because of a conflict with the tree"
+msgstr ""
+
+#: src/report.py:92
+msgid "Fix these persons in Gramps, or enable Force Import to overwrite them, then run the import again."
+msgstr ""
+
+#: src/report.py:94
+msgid "Pages that could not be read"
+msgstr ""
+
+#: src/report.py:95
 msgid "Media that could not be downloaded"
 msgstr ""
 
-#: src/report.py:100
+#: src/report.py:105
 msgid "... and %d more"
 msgstr ""
 
