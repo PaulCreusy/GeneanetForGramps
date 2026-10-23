@@ -4,6 +4,7 @@ import re
 import src.state as state
 from src.state import _, LOG
 from src.date_utils import format_iso, format_noniso, geneanet_strings
+from src.names import same_name
 
 from gramps.gen.errors import HandleError
 from gramps.gen.lib import (
@@ -40,14 +41,14 @@ class GBase:
                 scopy = False
 
         if attr == 'lastname' and self.__dict__[attr] != self.__dict__['g_' + attr]:
-            if self.__dict__[attr] != "":
+            if self.__dict__[attr] != "" and not same_name(self.__dict__[attr], self.__dict__['g_' + attr]):
                 LOG.warning(_("Lastname conflict between Geneanet (%s) and Gramps (%s), keeping Gramps value"),
                             self.__dict__['g_' + attr], self.__dict__[attr])
         if attr == 'lastname' and self.__dict__[attr] == "":
             scopy = True
 
         if attr == 'firstname' and self.__dict__[attr] != self.__dict__['g_' + attr]:
-            if self.__dict__[attr] != "":
+            if self.__dict__[attr] != "" and not same_name(self.__dict__[attr], self.__dict__['g_' + attr]):
                 LOG.warning(_("Firstname conflict between Geneanet (%s) and Gramps (%s), keeping Gramps value"),
                             self.__dict__['g_' + attr], self.__dict__[attr])
         if attr == 'firstname' and self.__dict__[attr] == "":

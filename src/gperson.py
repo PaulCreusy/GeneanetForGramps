@@ -5,6 +5,7 @@ from src.gbase import GBase
 from src.date_utils import format_year
 from src.exceptions import GeneanetAccessError, ImportCancelled
 from src import report
+from src.names import same_name
 
 from gramps.gen.db import DbTxn
 from gramps.gen.errors import HandleError
@@ -173,7 +174,7 @@ class GPerson(GBase):
             LOG.debug(_("lastname: %s vs g_lastname: %s"), lastname, self.g_lastname)
             LOG.debug(_("bd: %s vs g_bd: %s"), bd, self.g_birthdate)
             LOG.debug(_("dd: %s vs g_dd: %s"), dd, self.g_deathdate)
-            if firstname != self.g_firstname or lastname != self.g_lastname:
+            if not same_name(firstname, self.g_firstname) or not same_name(lastname, self.g_lastname):
                 self.grampsp = None
                 continue
             if not bd and not dd and not self.g_birthdate and not self.g_deathdate:
@@ -404,68 +405,88 @@ class GPerson(GBase):
             # to know whether Geneanet actually gave us a navigable parent.
             # Fetching an empty ref creates a nameless "ghost" person that
             # still gets attached to the family below.
+            # A parent that geneanet_to_gramps() does not import (it differs
+            # from the person already in the tree: the conflict is in the
+            # report) is left out entirely - no exploration of its own
+            # ancestors, no link to the family - and the rest goes on.
+            father_ok = mother_ok = False
             if self.fref:
-                geneanet_to_gramps(self.father, level, self.father.gid, self.fref)
+                father_ok = geneanet_to_gramps(self.father, level, self.father.gid, self.fref) is not None
+            if self.fref and father_ok:
                 if self.mother:
                     self.mother.spouse.append(self.father)
 
                 LOG.debug(_("=> Recursing on the parents of %s %s"), self.father.firstname, self.father.lastname)
                 self.father.recurse_parents(level)
                 LOG.debug(_("=> End of recursion on the parents of %s %s"), self.father.firstname, self.father.lastname)
+            elif self.fref:
+                LOG.info(_("The father was not imported (see the conflicts in the report), skipping"))
             else:
                 LOG.info(_("No navigable link for the father (private profile), skipping"))
                 report.current.skip(_("the father of %s %s") % (self.firstname, self.lastname))
 
             if self.mref:
-                geneanet_to_gramps(self.mother, level, self.mother.gid, self.mref)
+                mother_ok = geneanet_to_gramps(self.mother, level, self.mother.gid, self.mref) is not None
+            if self.mref and mother_ok:
                 if self.father:
                     self.father.spouse.append(self.mother)
                 LOG.debug(_("=> Recursing on the mother of %s %s"), self.mother.firstname, self.mother.lastname)
                 self.mother.recurse_parents(level)
                 LOG.debug(_("=> End of recursing on the mother of %s %s"), self.mother.firstname, self.mother.lastname)
+            elif self.mref:
+                LOG.info(_("The mother was not imported (see the conflicts in the report), skipping"))
             else:
                 LOG.info(_("No navigable link for the mother (private profile), skipping"))
                 report.current.skip(_("the mother of %s %s") % (self.firstname, self.lastname))
 
-            LOG.debug(_("=> Initialize Parents Family of %s %s"), self.firstname, self.lastname)
-            f = GFamily(self.father, self.mother)
-            f.from_geneanet()
-            f.from_gramps(f.gid)
-            f.to_gramps()
-            if self.father:
-                self.father.family.append(f)
-            if self.mother:
-                self.mother.family.append(f)
+            # No family when neither parent was imported (it would be empty),
+            # nor when one was left out because it differs from the person
+            # already in the tree: that person already has its family there,
+            # and a second one with only the other parent would link self to
+            # two families.
+            parent_left_out = bool(self.fref and not father_ok or self.mref and not mother_ok)
+            if (father_ok or mother_ok) and not parent_left_out:
+                LOG.debug(_("=> Initialize Parents Family of %s %s"), self.firstname, self.lastname)
+                f = GFamily(self.father, self.mother)
+                f.from_geneanet()
+                f.from_gramps(f.gid)
+                f.to_gramps()
+                if self.father:
+                    self.father.family.append(f)
+                if self.mother:
+                    self.mother.family.append(f)
 
-            if state.spouses:
-                fam = self.father.add_spouses(level)
-                if state.ascendants:
-                    for ff in fam:
-                        if ff.gid != f.gid:
-                            ff.mother.recurse_parents(level)
-                if state.descendants:
-                    for ff in fam:
-                        if ff.gid != f.gid:
-                            ff.recurse_children(level)
-                fam = self.mother.add_spouses(level)
-                if state.ascendants:
-                    for mf in fam:
-                        if mf.gid != f.gid:
-                            mf.father.recurse_parents(level)
-                if state.descendants:
-                    for mf in fam:
-                        if mf.gid != f.gid:
-                            mf.recurse_children(level)
+                if state.spouses:
+                    if father_ok:
+                        fam = self.father.add_spouses(level)
+                        if state.ascendants:
+                            for ff in fam:
+                                if ff.gid != f.gid:
+                                    ff.mother.recurse_parents(level)
+                        if state.descendants:
+                            for ff in fam:
+                                if ff.gid != f.gid:
+                                    ff.recurse_children(level)
+                    if mother_ok:
+                        fam = self.mother.add_spouses(level)
+                        if state.ascendants:
+                            for mf in fam:
+                                if mf.gid != f.gid:
+                                    mf.father.recurse_parents(level)
+                        if state.descendants:
+                            for mf in fam:
+                                if mf.gid != f.gid:
+                                    mf.recurse_children(level)
 
-            # self is certainly a child of this family - we found father/
-            # mother via self.fref/self.mref in the first place - so link it
-            # directly instead of relying solely on recurse_children below
-            # re-matching self by name/date among Geneanet's own child
-            # listing, which can silently fail to recognize self and leave
-            # it unlinked even though the family was created.
-            f.add_child(self)
-            if state.descendants:
-                f.recurse_children(level)
+                # self is certainly a child of this family - we found father/
+                # mother via self.fref/self.mref in the first place - so link it
+                # directly instead of relying solely on recurse_children below
+                # re-matching self by name/date among Geneanet's own child
+                # listing, which can silently fail to recognize self and leave
+                # it unlinked even though the family was created.
+                f.add_child(self)
+                if state.descendants:
+                    f.recurse_children(level)
 
         if not loop:
             if level >= state.LEVEL:

@@ -82,51 +82,51 @@ msgstr ""
 msgid "Extension to import data from Geneanet into Gramps."
 msgstr ""
 
-#: src/gbase.py:38
+#: src/gbase.py:39
 msgid "Gender conflict between Geneanet (%s) and Gramps (%s), keeping Gramps value"
 msgstr ""
 
-#: src/gbase.py:44
+#: src/gbase.py:45
 msgid "Lastname conflict between Geneanet (%s) and Gramps (%s), keeping Gramps value"
 msgstr ""
 
-#: src/gbase.py:51
+#: src/gbase.py:52
 msgid "Firstname conflict between Geneanet (%s) and Gramps (%s), keeping Gramps value"
 msgstr ""
 
-#: src/gbase.py:81
+#: src/gbase.py:82
 msgid "Copying Person attribute %s (former value %s newer value %s)"
 msgstr ""
 
-#: src/gbase.py:142
+#: src/gbase.py:143
 msgid "Unable to handle class %s in get_or_create_all_event"
 msgstr ""
 
-#: src/gbase.py:148 src/gperson.py:240
+#: src/gbase.py:149 src/gperson.py:241
 msgid "Imported from Geneanet"
 msgstr ""
 
-#: src/gbase.py:166
+#: src/gbase.py:167
 msgid "Creating %s (%s) Event"
 msgstr ""
 
-#: src/gbase.py:207
+#: src/gbase.py:208
 msgid "Trying to affect an empty date"
 msgstr ""
 
-#: src/gbase.py:209
+#: src/gbase.py:210
 msgid "Trying to affect an extra numbered date"
 msgstr ""
 
-#: src/gbase.py:213
+#: src/gbase.py:214
 msgid "Update %s Date to %s"
 msgstr ""
 
-#: src/gbase.py:250
+#: src/gbase.py:251
 msgid "Didn't find a known EventType: %s"
 msgstr ""
 
-#: src/gbase.py:260
+#: src/gbase.py:261
 msgid "Didn't find a known ref for this ref date: %s"
 msgstr ""
 
@@ -134,7 +134,7 @@ msgstr ""
 msgid "Creating GFamily: %s %s - %s %s"
 msgstr ""
 
-#: src/gfamily.py:41 src/gfamily.py:139 src/gfamily.py:202 src/gperson.py:128
+#: src/gfamily.py:41 src/gfamily.py:139 src/gfamily.py:202 src/gperson.py:129
 msgid "Geneanet import"
 msgstr ""
 
@@ -142,7 +142,7 @@ msgstr ""
 msgid "Create new Gramps Family: %s"
 msgstr ""
 
-#: src/gfamily.py:109 src/gperson.py:267
+#: src/gfamily.py:109 src/gperson.py:268
 msgid "Unable to retrieve id %s from the gramps db %s"
 msgstr ""
 
@@ -170,71 +170,79 @@ msgstr ""
 msgid "Stopping exploration for family %s %s - %s %s as we reached level %s"
 msgstr ""
 
-#: src/gperson.py:101
+#: src/gperson.py:102
 msgid "We failed to reach the server at %s"
 msgstr ""
 
-#: src/gperson.py:110
+#: src/gperson.py:111
 msgid "==> GENEANET Name (L%d): %s %s"
 msgstr ""
 
-#: src/gperson.py:134
+#: src/gperson.py:135
 msgid "Create new Gramps Person: %s (%s %s)"
 msgstr ""
 
-#: src/gperson.py:200
+#: src/gperson.py:201
 msgid "Unable to sync unknown Gramps Person"
 msgstr ""
 
-#: src/gperson.py:230
+#: src/gperson.py:231
 msgid "Occupation: %s"
 msgstr ""
 
-#: src/gperson.py:297
+#: src/gperson.py:298
 msgid "Unable to retrieve birth date for id %s"
 msgstr ""
 
-#: src/gperson.py:307
+#: src/gperson.py:308
 msgid "Unable to retrieve death date for id %s"
 msgstr ""
 
-#: src/gperson.py:328
+#: src/gperson.py:329
 msgid "Father name: %s"
 msgstr ""
 
-#: src/gperson.py:336
+#: src/gperson.py:337
 msgid "Mother name: %s"
 msgstr ""
 
-#: src/gperson.py:353
+#: src/gperson.py:354
 msgid "No navigable link for spouse %d of %s %s (private profile), skipping"
 msgstr ""
 
-#: src/gperson.py:355
+#: src/gperson.py:356
 msgid "a spouse of %s %s"
 msgstr ""
 
-#: src/gperson.py:375
+#: src/gperson.py:376
 msgid "Unable to Initialize Family of %s %s: sex unknown"
 msgstr ""
 
-#: src/gperson.py:416
+#: src/gperson.py:423
+msgid "The father was not imported (see the conflicts in the report), skipping"
+msgstr ""
+
+#: src/gperson.py:425
 msgid "No navigable link for the father (private profile), skipping"
 msgstr ""
 
-#: src/gperson.py:417
+#: src/gperson.py:426
 msgid "the father of %s %s"
 msgstr ""
 
-#: src/gperson.py:427
+#: src/gperson.py:437
+msgid "The mother was not imported (see the conflicts in the report), skipping"
+msgstr ""
+
+#: src/gperson.py:439
 msgid "No navigable link for the mother (private profile), skipping"
 msgstr ""
 
-#: src/gperson.py:428
+#: src/gperson.py:440
 msgid "the mother of %s %s"
 msgstr ""
 
-#: src/gperson.py:474
+#: src/gperson.py:495
 msgid "Stopping exploration as there are no more parents"
 msgstr ""
 
@@ -342,51 +350,27 @@ msgstr ""
 msgid "Saved Geneanet login for %s to %s"
 msgstr ""
 
-#: src/importer.py:20
-msgid "Do not continue without force"
+#: src/importer.py:59
+msgid "Name - Gramps: %(gramps)s / Geneanet: %(geneanet)s (%(url)s)"
 msgstr ""
 
-#: src/importer.py:22
-msgid "Please fix the person in Gramps, or enable Force Import to overwrite it."
+#: src/importer.py:79
+msgid "Birth/death - Gramps: %(gramps)s / Geneanet: %(geneanet)s (%(url)s)"
 msgstr ""
 
-#: src/importer.py:51
-msgid "Gramps   person: %s %s"
-msgstr ""
-
-#: src/importer.py:52
-msgid "Geneanet person: %s %s"
-msgstr ""
-
-#: src/importer.py:53
-msgid "Geneanet import: name conflict"
-msgstr ""
-
-#: src/importer.py:70
-msgid "Gramps   person birth/death: %s / %s"
-msgstr ""
-
-#: src/importer.py:71
-msgid "Geneanet person birth/death: %s / %s"
-msgstr ""
-
-#: src/importer.py:72
-msgid "Geneanet import: birth/death conflict"
-msgstr ""
-
-#: src/importer.py:95
+#: src/importer.py:105
 msgid "Reading the size of the Geneanet tree..."
 msgstr ""
 
-#: src/importer.py:135 src/report.py:51
+#: src/importer.py:145 src/report.py:51
 msgid "Geneanet import stopped"
 msgstr ""
 
-#: src/importer.py:137
+#: src/importer.py:147
 msgid "Geneanet import stopped."
 msgstr ""
 
-#: src/importer.py:140
+#: src/importer.py:150
 msgid "Geneanet import cancelled by the user."
 msgstr ""
 
@@ -470,11 +454,15 @@ msgstr ""
 msgid "Not imported because of a conflict with the tree"
 msgstr ""
 
-#: src/report.py:75
+#: src/report.py:76
+msgid "Fix these persons in Gramps, or enable Force Import to overwrite them, then run the import again."
+msgstr ""
+
+#: src/report.py:78
 msgid "Pages that could not be read"
 msgstr ""
 
-#: src/report.py:85
+#: src/report.py:88
 msgid "... and %d more"
 msgstr ""
 

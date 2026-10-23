@@ -1,6 +1,4 @@
 # GeneanetForGramps - Top-level import orchestration
-import sys
-
 import src.state as state
 from src.state import _, LOG
 from src.gperson import GPerson
@@ -8,18 +6,17 @@ from src.progress import ImportProgress
 from src import report
 from src.exceptions import GeneanetAccessError, ImportCancelled
 from src.worker_env import WorkerEnvError
+from src.names import same_name
 from gramps.gui.dialog import ErrorDialog, InfoDialog
 
 
-def _report_conflict(title, detail):
-    """Report a blocking conflict: stop the CLI, or show a popup in GUI mode."""
-    LOG.error(detail)
-    report.current.conflict("%s: %s" % (title, detail.replace("\n", " / ")))
-    if not state.GUIMODE:
-        state.db.close()
-        sys.exit(_("Do not continue without force"))
-    else:
-        ErrorDialog(title, detail + "\n\n" + _("Please fix the person in Gramps, or enable Force Import to overwrite it."))
+def _record_conflict(description):
+    """A person that differs between Gramps and Geneanet is left untouched and
+    listed in the final report; the import goes on with the rest. Stopping, or
+    a popup per conflict, made a long import unusable as soon as a few persons
+    differed."""
+    LOG.warning(description)
+    report.current.conflict(description)
 
 
 def _dates_conflict(gramps_date, geneanet_date):
@@ -29,6 +26,16 @@ def _dates_conflict(gramps_date, geneanet_date):
     if not gramps_date or not geneanet_date:
         return False
     return gramps_date != geneanet_date
+
+
+def _skip(p):
+    """Detach a person that is not imported from the Gramps person it was
+    matched with, so nothing built afterwards (a family, the parents' links)
+    can be attached to a person who turned out to be different. Returns None,
+    the "not imported" answer of geneanet_to_gramps()."""
+    p.gid = None
+    p.grampsp = None
+    return None
 
 
 def geneanet_to_gramps(p, level, gid, url):
@@ -47,11 +54,13 @@ def geneanet_to_gramps(p, level, gid, url):
     p.from_gramps(gid)
 
     if gid is not None:
-        if (p.firstname != p.g_firstname or p.lastname != p.g_lastname) and not state.force:
-            detail = (_("Gramps   person: %s %s") % (p.firstname, p.lastname) + "\n" +
-                      _("Geneanet person: %s %s") % (p.g_firstname, p.g_lastname))
-            _report_conflict(_("Geneanet import: name conflict"), detail)
-            return None
+        if (not same_name(p.firstname, p.g_firstname)
+                or not same_name(p.lastname, p.g_lastname)) and not state.force:
+            _record_conflict(_("Name - Gramps: %(gramps)s / Geneanet: %(geneanet)s (%(url)s)") % {
+                "gramps": ("%s %s" % (p.firstname, p.lastname)).strip(),
+                "geneanet": ("%s %s" % (p.g_firstname, p.g_lastname)).strip(),
+                "url": url})
+            return _skip(p)
 
         # Fix potential empty dates
         if p.g_birthdate == "":
@@ -67,10 +76,11 @@ def geneanet_to_gramps(p, level, gid, url):
         death_conflict = _dates_conflict(p.deathdate, p.g_deathdate)
 
         if (birth_conflict or death_conflict) and not state.force:
-            detail = (_("Gramps   person birth/death: %s / %s") % (p.birthdate, p.deathdate) + "\n" +
-                      _("Geneanet person birth/death: %s / %s") % (p.g_birthdate, p.g_deathdate))
-            _report_conflict(_("Geneanet import: birth/death conflict"), detail)
-            return None
+            _record_conflict(_("Birth/death - Gramps: %(gramps)s / Geneanet: %(geneanet)s (%(url)s)") % {
+                "gramps": "%s / %s" % (p.birthdate, p.deathdate),
+                "geneanet": "%s / %s" % (p.g_birthdate, p.g_deathdate),
+                "url": url})
+            return _skip(p)
 
     p.to_gramps()
     report.current.person_done(p.gid, p.created)
