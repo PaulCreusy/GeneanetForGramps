@@ -1,4 +1,6 @@
 # GeneanetForGramps - Top-level import orchestration
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
 import src.state as state
 from src.state import _, LOG
 from src.gperson import GPerson
@@ -114,7 +116,16 @@ def _read_tree_size(purl):
         return None
 
 
+def clean_person_url(purl):
+    """The URL without its "type" parameter (type=tree, ...): it selects a
+    view of the page that is not the person page the scraper expects."""
+    parts = urlsplit(purl.strip())
+    query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if k != "type"]
+    return urlunsplit(parts._replace(query=urlencode(query)))
+
+
 def g2gaction(gid, purl):
+    purl = clean_person_url(purl)
     if state.progress is None:
         state.progress = ImportProgress()
     report.start().media_enabled = state.media
