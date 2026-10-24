@@ -3,7 +3,7 @@
     "t": 2,
     "i": "Import Geneanet data for Gramps",
     "n": "Import des données Geneanet dans Gramps",
-    "v": "1.7.2",
+    "v": "1.7.3",
     "g": "6.0",
     "d": "Extension pour importer les données de Geneanet dans Gramps",
     "z": "GeneanetForGramps.addon.tgz",
