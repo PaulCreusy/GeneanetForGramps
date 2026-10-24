@@ -23,6 +23,7 @@ class ImportReport:
         self.media_enabled = False  # set by the import: shows the media line
         self.media_added = 0
         self.media_failures = []
+        self.unknown = []
         self.conflicts = []
         self.failures = []
         self.outcome = COMPLETED
@@ -42,6 +43,9 @@ class ImportReport:
 
     def skip(self, text):
         self.skipped.append(text)
+
+    def unknown_person(self, url):
+        self.unknown.append(url)
 
     def conflict(self, text):
         self.conflicts.append(text)
@@ -82,6 +86,7 @@ class ImportReport:
         if self.media_enabled:
             lines.append(_("Media added: %d") % self.media_added)
         lines += self._section(_("Skipped, private profile without a link"), self.skipped)
+        lines += self._section(_("Skipped, unknown person (name \"?\")"), self.unknown)
         lines += self._section(_("Not imported because of a conflict with the tree"), self.conflicts)
         if self.conflicts:
             lines.append(_("Fix these persons in Gramps, or enable Force Import to overwrite them, "
