@@ -65,8 +65,12 @@ class GFamily(GBase):
                       father.gramps_id if father else "None", self.father.gid or "None")
             LOG.debug(_("Check mother ids: %s vs %s"),
                       mother.gramps_id if mother else "None", self.mother.gid or "None")
-            if self.father and father and father.gramps_id == self.father.gid \
-                    and self.mother and mother and mother.gramps_id == self.mother.gid:
+            # A parent who is not in the tree (unknown person) must be missing
+            # from the family too.
+            father_id = father.gramps_id if father else None
+            mother_id = mother.gramps_id if mother else None
+            if (father_id or mother_id) and father_id == (self.father.gid or None) \
+                    and mother_id == (self.mother.gid or None):
                 return f
             # TODO: What about preexisting families not created in this run ?
         return None
@@ -142,7 +146,7 @@ class GFamily(GBase):
                 state.db.add_family(self.family, tran)
 
             try:
-                grampsp0 = state.db.get_person_from_gramps_id(self.father.gid)
+                grampsp0 = state.db.get_person_from_gramps_id(self.father.gid) if self.father.gid else None
             except HandleError:
                 LOG.debug(_("No father for this family"))
                 grampsp0 = None
@@ -157,7 +161,7 @@ class GFamily(GBase):
                 state.db.commit_person(grampsp0, tran)
 
             try:
-                grampsp1 = state.db.get_person_from_gramps_id(self.mother.gid)
+                grampsp1 = state.db.get_person_from_gramps_id(self.mother.gid) if self.mother.gid else None
             except HandleError:
                 LOG.debug(_("No mother for this family"))
                 grampsp1 = None

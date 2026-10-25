@@ -59,6 +59,7 @@ def geneanet_to_gramps(p, level, gid, url):
         # person: they are not imported.
         LOG.info(_("Unknown person (%s), not imported"), url)
         report.current.unknown_person(url)
+        p.unknown = True
         return _skip(p)
     p.from_gramps(gid)
 

@@ -118,7 +118,7 @@ msgstr "Copie de l'attribut %s de l'individu (valeur précédente : %s, nouvelle
 msgid "Unable to handle class %s in get_or_create_all_event"
 msgstr "Impossible de gérer la classe %s dans get_or_create_all_event"
 
-#: src/gbase.py:149 src/gperson.py:347
+#: src/gbase.py:149 src/gperson.py:350
 msgid "Imported from Geneanet"
 msgstr "Importé depuis Geneanet"
 
@@ -150,7 +150,7 @@ msgstr "Référence introuvable pour cette date : %s"
 msgid "Creating GFamily: %s %s - %s %s"
 msgstr "Création de la famille : %s %s - %s %s"
 
-#: src/gfamily.py:41 src/gfamily.py:139 src/gfamily.py:202 src/gperson.py:238
+#: src/gfamily.py:41 src/gfamily.py:143 src/gfamily.py:206 src/gperson.py:241
 msgid "Geneanet import"
 msgstr "Import Geneanet"
 
@@ -158,115 +158,123 @@ msgstr "Import Geneanet"
 msgid "Create new Gramps Family: %s"
 msgstr "Création d'une nouvelle famille Gramps : %s"
 
-#: src/gfamily.py:109 src/gperson.py:374
+#: src/gfamily.py:113 src/gperson.py:377
 msgid "Unable to retrieve id %s from the gramps db %s"
 msgstr "Impossible de récupérer l'identifiant %s dans la base Gramps %s"
 
-#: src/gfamily.py:189
+#: src/gfamily.py:193
 msgid "Child already existing : %s %s"
 msgstr "Enfant déjà présent : %s %s"
 
-#: src/gfamily.py:224
+#: src/gfamily.py:228
 msgid "No family found whereas there should be one :-("
 msgstr "Aucune famille trouvée alors qu'il devrait y en avoir une :-("
 
-#: src/gfamily.py:233
+#: src/gfamily.py:237
 msgid "No navigable link for a child of %s %s - %s %s (private profile), skipping"
 msgstr "Pas de lien pour un enfant de %s %s - %s %s (profil privé), ignoré"
 
-#: src/gfamily.py:236
+#: src/gfamily.py:240
 msgid "a child of %s %s and %s %s"
 msgstr "un enfant de %s %s et %s %s"
 
-#: src/gfamily.py:266
+#: src/gfamily.py:270
 msgid "Stopping exploration for family %s %s - %s %s as there are no more children"
 msgstr "Fin de l'exploration de la famille %s %s - %s %s : il n'y a plus d'enfants"
 
-#: src/gfamily.py:272
+#: src/gfamily.py:276
 msgid "Stopping exploration for family %s %s - %s %s as we reached level %s"
 msgstr "Fin de l'exploration de la famille %s %s - %s %s : le niveau %s est atteint"
 
-#: src/gperson.py:101
+#: src/gperson.py:104
 msgid "We failed to reach the server at %s"
 msgstr "Impossible de joindre le serveur à l'adresse %s"
 
-#: src/gperson.py:110
+#: src/gperson.py:113
 msgid "==> GENEANET Name (L%d): %s %s"
 msgstr "==> Nom GENEANET (L%d): %s %s"
 
-#: src/gperson.py:180
+#: src/gperson.py:183
 msgid "Nobility title: %s"
 msgstr "Titre de noblesse : %s"
 
-#: src/gperson.py:228
+#: src/gperson.py:231
 msgid "Adding media %s"
 msgstr "Ajout du média %s"
 
-#: src/gperson.py:244
+#: src/gperson.py:247
 msgid "Create new Gramps Person: %s (%s %s)"
 msgstr "Création d'un nouvel individu Gramps : %s (%s %s)"
 
-#: src/gperson.py:310
+#: src/gperson.py:313
 msgid "Unable to sync unknown Gramps Person"
 msgstr "Impossible de synchroniser un individu Gramps inconnu"
 
-#: src/gperson.py:332
+#: src/gperson.py:335
 msgid "Occupation: %s"
 msgstr "Profession : %s"
 
-#: src/gperson.py:404
+#: src/gperson.py:407
 msgid "Unable to retrieve birth date for id %s"
 msgstr "Impossible de récupérer la date de naissance de %s"
 
-#: src/gperson.py:414
+#: src/gperson.py:417
 msgid "Unable to retrieve death date for id %s"
 msgstr "Impossible de récupérer la date de décès de %s"
 
-#: src/gperson.py:434
+#: src/gperson.py:437
 msgid "Father name: %s"
 msgstr "Nom du père : %s"
 
-#: src/gperson.py:442
+#: src/gperson.py:445
 msgid "Mother name: %s"
 msgstr "Nom de la mère : %s"
 
-#: src/gperson.py:459
+#: src/gperson.py:462
 msgid "No navigable link for spouse %d of %s %s (private profile), skipping"
 msgstr "Pas de lien pour le conjoint %d de %s %s (profil privé), ignoré"
 
-#: src/gperson.py:461
+#: src/gperson.py:464
 msgid "a spouse of %s %s"
 msgstr "un conjoint de %s %s"
 
-#: src/gperson.py:485
+#: src/gperson.py:493
 msgid "Unable to Initialize Family of %s %s: sex unknown"
 msgstr "Impossible de créer la famille de %s %s : sexe inconnu"
 
-#: src/gperson.py:532
+#: src/gperson.py:542
+msgid "The father is unknown, the family is created without him"
+msgstr "Le père est inconnu, la famille est créée sans lui"
+
+#: src/gperson.py:544
 msgid "The father was not imported (see the conflicts in the report), skipping"
 msgstr "Le père n'a pas été importé (voir les conflits dans le rapport), ignoré"
 
-#: src/gperson.py:534
+#: src/gperson.py:546
 msgid "No navigable link for the father (private profile), skipping"
 msgstr "Pas de lien pour le père (profil privé), ignoré"
 
-#: src/gperson.py:535
+#: src/gperson.py:547
 msgid "the father of %s %s"
 msgstr "le père de %s %s"
 
-#: src/gperson.py:546
+#: src/gperson.py:558
+msgid "The mother is unknown, the family is created without her"
+msgstr "La mère est inconnue, la famille est créée sans elle"
+
+#: src/gperson.py:560
 msgid "The mother was not imported (see the conflicts in the report), skipping"
 msgstr "La mère n'a pas été importée (voir les conflits dans le rapport), ignorée"
 
-#: src/gperson.py:548
+#: src/gperson.py:562
 msgid "No navigable link for the mother (private profile), skipping"
 msgstr "Pas de lien pour la mère (profil privé), ignoré"
 
-#: src/gperson.py:549
+#: src/gperson.py:563
 msgid "the mother of %s %s"
 msgstr "la mère de %s %s"
 
-#: src/gperson.py:604
+#: src/gperson.py:621
 msgid "Stopping exploration as there are no more parents"
 msgstr "Arrêt de l'exploration, car il n'y a plus de parents"
 
@@ -386,27 +394,27 @@ msgstr "Identifiants Geneanet de %s enregistrés dans %s"
 msgid "Unknown person (%s), not imported"
 msgstr "Personne inconnue (%s), non importée"
 
-#: src/importer.py:68
+#: src/importer.py:69
 msgid "Name - Gramps: %(gramps)s / Geneanet: %(geneanet)s (%(url)s)"
 msgstr "Nom - Gramps : %(gramps)s / Geneanet : %(geneanet)s (%(url)s)"
 
-#: src/importer.py:88
+#: src/importer.py:89
 msgid "Birth/death - Gramps: %(gramps)s / Geneanet: %(geneanet)s (%(url)s)"
 msgstr "Naissance/décès - Gramps : %(gramps)s / Geneanet : %(geneanet)s (%(url)s)"
 
-#: src/importer.py:114
+#: src/importer.py:115
 msgid "Reading the size of the Geneanet tree..."
 msgstr "Lecture de la taille de l'arbre Geneanet..."
 
-#: src/importer.py:163 src/report.py:64
+#: src/importer.py:164 src/report.py:64
 msgid "Geneanet import stopped"
 msgstr "Import Geneanet interrompu"
 
-#: src/importer.py:165
+#: src/importer.py:166
 msgid "Geneanet import stopped."
 msgstr "Import Geneanet interrompu."
 
-#: src/importer.py:168
+#: src/importer.py:169
 msgid "Geneanet import cancelled by the user."
 msgstr "Import Geneanet annulé par l'utilisateur."
 

@@ -28,6 +28,9 @@ class GPerson(GBase):
     def __init__(self, level):
         LOG.debug(_("Initialize Person at level %d"), level)
         self.level = level
+        # Geneanet shows this person as "? ?": never imported, but the family
+        # it belongs to is still created with the known parent only.
+        self.unknown = False
         # Gramps
         self.firstname = ""
         self.lastname = ""
@@ -467,14 +470,19 @@ class GPerson(GBase):
                     spouse = s
                     break
             if not spouse:
-                spouse = geneanet_to_gramps(None, level, None, self.spouseref[i])
+                partner = GPerson(level)
+                spouse = geneanet_to_gramps(partner, level, None, self.spouseref[i])
                 if spouse:
                     self.spouse.append(spouse)
                     spouse.spouse.append(self)
+                elif partner.unknown:
+                    # The family exists even if the partner is not known:
+                    # it holds the children of the parent who is.
+                    spouse = partner
                     LOG.debug(_("=> Initialize Family of %s %s & %s %s"),
                               self.firstname, self.lastname, spouse.firstname, spouse.lastname)
                 if spouse is None:
-                    # Not imported (unknown person, conflict): no family.
+                    # Not imported (conflict with the tree): no family.
                     i = i + 1
                     continue
                 if self.sex == 'M':
@@ -501,6 +509,8 @@ class GPerson(GBase):
         from src.gfamily import GFamily
         from src.importer import geneanet_to_gramps
         loop = False
+        if self.unknown:
+            return
         # Strict "<": level already reflects self's own generation, so
         # stop recursing further once self is at the requested depth -
         # otherwise one extra generation gets fetched (LEVEL=1 would
@@ -528,6 +538,8 @@ class GPerson(GBase):
                 LOG.debug(_("=> Recursing on the parents of %s %s"), self.father.firstname, self.father.lastname)
                 self.father.recurse_parents(level)
                 LOG.debug(_("=> End of recursion on the parents of %s %s"), self.father.firstname, self.father.lastname)
+            elif self.fref and self.father.unknown:
+                LOG.info(_("The father is unknown, the family is created without him"))
             elif self.fref:
                 LOG.info(_("The father was not imported (see the conflicts in the report), skipping"))
             else:
@@ -542,6 +554,8 @@ class GPerson(GBase):
                 LOG.debug(_("=> Recursing on the mother of %s %s"), self.mother.firstname, self.mother.lastname)
                 self.mother.recurse_parents(level)
                 LOG.debug(_("=> End of recursing on the mother of %s %s"), self.mother.firstname, self.mother.lastname)
+            elif self.mref and self.mother.unknown:
+                LOG.info(_("The mother is unknown, the family is created without her"))
             elif self.mref:
                 LOG.info(_("The mother was not imported (see the conflicts in the report), skipping"))
             else:
@@ -553,7 +567,10 @@ class GPerson(GBase):
             # already in the tree: that person already has its family there,
             # and a second one with only the other parent would link self to
             # two families.
-            parent_left_out = bool(self.fref and not father_ok or self.mref and not mother_ok)
+            # An unknown parent is not a conflict: the family is created with
+            # the other parent only.
+            parent_left_out = bool(self.fref and not father_ok and not self.father.unknown
+                                   or self.mref and not mother_ok and not self.mother.unknown)
             if (father_ok or mother_ok) and not parent_left_out:
                 LOG.debug(_("=> Initialize Parents Family of %s %s"), self.firstname, self.lastname)
                 f = GFamily(self.father, self.mother)
