@@ -99,6 +99,13 @@ is not downloaded again, and importing twice does not attach anything twice. The
 fetched through the browser window, so this works behind Cloudflare and the login, but it can
 make an import much longer. A file that cannot be downloaded is listed in the final summary.
 
+A person already in the tree is recognised by the Geneanet address stored on it by a previous
+import. Otherwise it is matched by name **and** dates: the name must be the same and at least
+one of the birth and death dates known and equal on both sides, with no known date that
+differs. Without any date to compare, or when several persons of the tree fit, no match is
+assumed and a new person is created, because merging homonyms would give them the wrong
+parents. (If you imported with an earlier version, look for such duplicates by hand.)
+
 A progress window is shown during the import. Its bar is an **estimate**: the size
 of a Geneanet tree is unknown until it has been walked, so the total is projected
 from the links found so far and the depth you chose, capped by the number of persons

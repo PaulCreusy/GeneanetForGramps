@@ -42,6 +42,21 @@ def format_ca(date, lang='fr'):
     return date
 
 
+def dates_identify(gramps_birth, geneanet_birth, gramps_death, geneanet_death):
+    """True only when the dates say it is the same person: at least one of
+    the birth and death dates is known on both sides and equal, and none
+    known on both sides differs. Nothing to compare (no date on one side or
+    the other) proves nothing - homonyms are common - so it is not a match."""
+    agreed = False
+    for gramps_date, geneanet_date in ((gramps_birth, geneanet_birth),
+                                       (gramps_death, geneanet_death)):
+        if gramps_date and geneanet_date:
+            if gramps_date != geneanet_date:
+                return False
+            agreed = True
+    return agreed
+
+
 def format_year(date):
     if not date:
         return date

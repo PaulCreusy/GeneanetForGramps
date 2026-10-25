@@ -106,7 +106,7 @@ msgstr ""
 msgid "Unable to handle class %s in get_or_create_all_event"
 msgstr ""
 
-#: src/gbase.py:149 src/gperson.py:350
+#: src/gbase.py:149 src/gperson.py:349
 msgid "Imported from Geneanet"
 msgstr ""
 
@@ -146,7 +146,7 @@ msgstr ""
 msgid "Create new Gramps Family: %s"
 msgstr ""
 
-#: src/gfamily.py:113 src/gperson.py:377
+#: src/gfamily.py:113 src/gperson.py:376
 msgid "Unable to retrieve id %s from the gramps db %s"
 msgstr ""
 
@@ -194,75 +194,79 @@ msgstr ""
 msgid "Create new Gramps Person: %s (%s %s)"
 msgstr ""
 
-#: src/gperson.py:313
+#: src/gperson.py:302
+msgid "Several Gramps persons match %s %s, creating a new one"
+msgstr ""
+
+#: src/gperson.py:312
 msgid "Unable to sync unknown Gramps Person"
 msgstr ""
 
-#: src/gperson.py:335
+#: src/gperson.py:334
 msgid "Occupation: %s"
 msgstr ""
 
-#: src/gperson.py:407
+#: src/gperson.py:406
 msgid "Unable to retrieve birth date for id %s"
 msgstr ""
 
-#: src/gperson.py:417
+#: src/gperson.py:416
 msgid "Unable to retrieve death date for id %s"
 msgstr ""
 
-#: src/gperson.py:437
+#: src/gperson.py:436
 msgid "Father name: %s"
 msgstr ""
 
-#: src/gperson.py:445
+#: src/gperson.py:444
 msgid "Mother name: %s"
 msgstr ""
 
-#: src/gperson.py:462
+#: src/gperson.py:461
 msgid "No navigable link for spouse %d of %s %s (private profile), skipping"
 msgstr ""
 
-#: src/gperson.py:464
+#: src/gperson.py:463
 msgid "a spouse of %s %s"
 msgstr ""
 
-#: src/gperson.py:493
+#: src/gperson.py:492
 msgid "Unable to Initialize Family of %s %s: sex unknown"
 msgstr ""
 
-#: src/gperson.py:542
+#: src/gperson.py:541
 msgid "The father is unknown, the family is created without him"
 msgstr ""
 
-#: src/gperson.py:544
+#: src/gperson.py:543
 msgid "The father was not imported (see the conflicts in the report), skipping"
 msgstr ""
 
-#: src/gperson.py:546
+#: src/gperson.py:545
 msgid "No navigable link for the father (private profile), skipping"
 msgstr ""
 
-#: src/gperson.py:547
+#: src/gperson.py:546
 msgid "the father of %s %s"
 msgstr ""
 
-#: src/gperson.py:558
+#: src/gperson.py:557
 msgid "The mother is unknown, the family is created without her"
 msgstr ""
 
-#: src/gperson.py:560
+#: src/gperson.py:559
 msgid "The mother was not imported (see the conflicts in the report), skipping"
 msgstr ""
 
-#: src/gperson.py:562
+#: src/gperson.py:561
 msgid "No navigable link for the mother (private profile), skipping"
 msgstr ""
 
-#: src/gperson.py:563
+#: src/gperson.py:562
 msgid "the mother of %s %s"
 msgstr ""
 
-#: src/gperson.py:621
+#: src/gperson.py:620
 msgid "Stopping exploration as there are no more parents"
 msgstr ""
 
