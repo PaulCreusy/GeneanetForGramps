@@ -205,6 +205,19 @@ def _parse_occupation(tree):
     return "; ".join(lines) or None
 
 
+def _parse_titles(tree):
+    """The nobility titles line shown under the name, as one text: Geneanet
+    stores it as free text (a title and a "place" that often holds further
+    titles, dates and remarks), with no reliable structure to split it on.
+    The link to the title page is the one carrying it."""
+    titles = []
+    for a in tree.xpath('//div[@id="perso"]//a[contains(@href,"m=TT")]'):
+        text = " ".join(a.text_content().split())
+        if text and text not in titles:
+            titles.append(text)
+    return titles
+
+
 def tree_root_url(purl):
     """The home page of the tree a person page belongs to: same site and
     first path segment (the tree's name), without the person parameters."""
@@ -495,6 +508,7 @@ def scrape_person(purl, media_dir=None):
         'g_deathplace': None,
         'g_deathplacecode': None,
         'occupation': None,
+        'titles': [],
         'media': [],
         'media_errors': [],
         'spouseref': [],
@@ -604,6 +618,8 @@ def scrape_person(purl, media_dir=None):
 
     data['occupation'] = _parse_occupation(tree)
     LOG.debug("Occupation: %s", data['occupation'])
+    data['titles'] = _parse_titles(tree)
+    LOG.debug("Titles: %s", data['titles'])
 
     s = 0
     sname = []

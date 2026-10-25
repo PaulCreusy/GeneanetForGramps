@@ -82,6 +82,13 @@ text is only replaced when **Force Import** is enabled. (Versions 1.2 to 1.6 sto
 occupation in an *Occupation attribute* instead: those attributes are left as they are
 in your tree and can be deleted by hand.)
 
+The nobility titles line shown under the name (for example `seigneur de la Vallée à
+Radinghem en Weppes bourgeois de Lille par achat`) is stored as a **Nobility Title** event
+(*Titre de noblesse*) whose description is that whole line, as Geneanet shows it. Geneanet
+keeps it as free text, with no reliable structure, so it is neither split into several
+titles nor searched for dates: the event has no date and no place. In a GEDCOM export it
+becomes a `TITL` line. A title already present on the person is not added again.
+
 **Import media** downloads the photos and documents listed in the "Photos et documents
 d'archives" block of each person's page. The files are saved in a `Geneanet` folder inside
 the *Base media path* of the tree (*Edit > Preferences > Family Tree*, or your Pictures

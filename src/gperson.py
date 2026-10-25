@@ -59,6 +59,7 @@ class GPerson(GBase):
         self.g_deathplace = None
         self.g_deathplacecode = None
         self.g_occupation = None
+        self.g_titles = []
         self.g_media = []  # [{title, date, file, is_default}] downloaded for this person
         self.url = ""
         self.spouseref = []
@@ -115,6 +116,7 @@ class GPerson(GBase):
             self.g_deathplace = data['g_deathplace']
             self.g_deathplacecode = data['g_deathplacecode']
             self.g_occupation = data.get('occupation')
+            self.g_titles = data.get('titles') or []
             self.g_media = data.get('media') or []
             for error in data.get('media_errors') or []:
                 report.current.media_failure(error)
@@ -152,6 +154,30 @@ class GPerson(GBase):
         else:
             event.set_description(self.occupation)
         state.db.commit_event(event, tran)
+
+    def _add_title_events(self, grampsp, tran):
+        """Each nobility title is a Nobility Title event whose description is
+        the title, with no date and no place. A title the person already has
+        is not added again."""
+        known = set()
+        for ref in grampsp.get_event_ref_list():
+            event = state.db.get_event_from_handle(ref.ref)
+            if event.get_type() == EventType.NOB_TITLE:
+                known.add(event.get_description())
+        for title in self.g_titles:
+            if title in known:
+                continue
+            event = Event()
+            event.set_type(EventType(EventType.NOB_TITLE))
+            event.set_description(title)
+            state.db.add_event(event, tran)
+            ref = EventRef()
+            ref.set_role(EventRoleType.PRIMARY)
+            ref.set_reference_handle(event.get_handle())
+            grampsp.add_event_ref(ref)
+            state.db.commit_event(event, tran)
+            known.add(title)
+            LOG.info(_("Nobility title: %s"), title)
 
     @staticmethod
     def _media_directory():
@@ -304,6 +330,8 @@ class GPerson(GBase):
             if self.occupation:
                 self._set_occupation_event(grampsp, tran)
                 LOG.info(_("Occupation: %s"), self.occupation)
+
+            self._add_title_events(grampsp, tran)
 
             if state.media and self.g_media:
                 self._attach_media(grampsp, tran)
