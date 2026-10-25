@@ -205,28 +205,16 @@ def _parse_occupation(tree):
     return "; ".join(lines) or None
 
 
-# A Geneanet title is a name and a place ("Comte" + "de Paris") shown joined.
-# A place starting with one of these goes with the name; anything else was
-# entered as a second, separate title (e.g. "seigneur de ..." + "bourgeois de
-# Lille par achat").
-_PLACE_PREPOSITIONS = ("de ", "d'", "d\u2019", "du ", "des ", "of ")
-
-
 def _parse_titles(tree):
-    """The nobility titles shown under the name: a link to the page of the
-    title, whose address carries the title (t=) and the place (p=)."""
+    """The nobility titles line shown under the name, as one text: Geneanet
+    stores it as free text (a title and a "place" that often holds further
+    titles, dates and remarks), with no reliable structure to split it on.
+    The link to the title page is the one carrying it."""
     titles = []
     for a in tree.xpath('//div[@id="perso"]//a[contains(@href,"m=TT")]'):
-        query = parse_qs(urlparse(a.get('href', '')).query)
-        name = " ".join(query.get('t', [''])[0].split())
-        place = " ".join(query.get('p', [''])[0].split())
-        if name and place and place.lower().startswith(_PLACE_PREPOSITIONS):
-            found = [name + " " + place]
-        else:
-            found = [name, place]
-        if not any(found):
-            found = [" ".join(a.text_content().split())]
-        titles += [t for t in found if t and t not in titles]
+        text = " ".join(a.text_content().split())
+        if text and text not in titles:
+            titles.append(text)
     return titles
 
 
