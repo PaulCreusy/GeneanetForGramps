@@ -2,7 +2,7 @@
 import src.state as state
 from src.state import _, LOG
 from src.gbase import GBase
-from src.date_utils import format_year
+from src.date_utils import format_year, dates_identify
 from src.exceptions import GeneanetAccessError, ImportCancelled
 from src import report
 from src.names import same_name
@@ -260,10 +260,13 @@ class GPerson(GBase):
                                   self.g_firstname, self.g_lastname, self.gid)
                         return
 
-        # Fallback: match by name + date
-        p = None
-        ids = state.db.get_person_gramps_ids()
-        for i in ids:
+        # Fallback: match by name + date. Only a certain match is used: two
+        # persons with the same name and no date to tell them apart are not
+        # assumed to be the same, nor is a name shared by several persons of
+        # the tree whose dates all agree - merging homonyms gave the same
+        # person several sets of parents.
+        matches = []
+        for i in state.db.get_person_gramps_ids():
             LOG.debug(_("Looking after %s"), i)
             p = state.db.get_person_from_gramps_id(i)
             try:
@@ -276,32 +279,28 @@ class GPerson(GBase):
                 name.append(None)
             lastname = name[0] if name[0] else ""
             firstname = name[1] if name[1] else ""
+            if not same_name(firstname, self.g_firstname) or not same_name(lastname, self.g_lastname):
+                continue
             self.grampsp = p
             bd = self.get_gramps_date(EventType.BIRTH)
             # Remove empty month/day if needed to compare below with just a year potentially
             bd = format_year(bd)
             dd = self.get_gramps_date(EventType.DEATH)
             dd = format_year(dd)
-            LOG.debug(_("firstname: %s vs g_firstname: %s"), firstname, self.g_firstname)
-            LOG.debug(_("lastname: %s vs g_lastname: %s"), lastname, self.g_lastname)
             LOG.debug(_("bd: %s vs g_bd: %s"), bd, self.g_birthdate)
             LOG.debug(_("dd: %s vs g_dd: %s"), dd, self.g_deathdate)
-            if not same_name(firstname, self.g_firstname) or not same_name(lastname, self.g_lastname):
-                self.grampsp = None
-                continue
-            if not bd and not dd and not self.g_birthdate and not self.g_deathdate:
-                # No dates on either side: accept the name match to avoid creating duplicates
-                self.gid = p.gramps_id
-                LOG.debug(_("Found a Gramps Person by name (no dates): %s %s (%s)"),
-                          self.g_firstname, self.g_lastname, self.gid)
-                break
-            if bd == self.g_birthdate or dd == self.g_deathdate:
-                self.gid = p.gramps_id
-                LOG.debug(_("Found a Gramps Person: %s %s (%s)"),
-                          self.g_firstname, self.g_lastname, self.gid)
-                break
-            else:
-                self.grampsp = None
+            if dates_identify(bd, self.g_birthdate, dd, self.g_deathdate):
+                matches.append(p)
+
+        self.grampsp = None
+        if len(matches) == 1:
+            self.grampsp = matches[0]
+            self.gid = self.grampsp.gramps_id
+            LOG.debug(_("Found a Gramps Person: %s %s (%s)"),
+                      self.g_firstname, self.g_lastname, self.gid)
+        elif matches:
+            LOG.info(_("Several Gramps persons match %s %s, creating a new one"),
+                     self.g_firstname, self.g_lastname)
 
     def to_gramps(self):
         self.smartcopy()
