@@ -205,6 +205,31 @@ def _parse_occupation(tree):
     return "; ".join(lines) or None
 
 
+# A Geneanet title is a name and a place ("Comte" + "de Paris") shown joined.
+# A place starting with one of these goes with the name; anything else was
+# entered as a second, separate title (e.g. "seigneur de ..." + "bourgeois de
+# Lille par achat").
+_PLACE_PREPOSITIONS = ("de ", "d'", "d\u2019", "du ", "des ", "of ")
+
+
+def _parse_titles(tree):
+    """The nobility titles shown under the name: a link to the page of the
+    title, whose address carries the title (t=) and the place (p=)."""
+    titles = []
+    for a in tree.xpath('//div[@id="perso"]//a[contains(@href,"m=TT")]'):
+        query = parse_qs(urlparse(a.get('href', '')).query)
+        name = " ".join(query.get('t', [''])[0].split())
+        place = " ".join(query.get('p', [''])[0].split())
+        if name and place and place.lower().startswith(_PLACE_PREPOSITIONS):
+            found = [name + " " + place]
+        else:
+            found = [name, place]
+        if not any(found):
+            found = [" ".join(a.text_content().split())]
+        titles += [t for t in found if t and t not in titles]
+    return titles
+
+
 def tree_root_url(purl):
     """The home page of the tree a person page belongs to: same site and
     first path segment (the tree's name), without the person parameters."""
@@ -495,6 +520,7 @@ def scrape_person(purl, media_dir=None):
         'g_deathplace': None,
         'g_deathplacecode': None,
         'occupation': None,
+        'titles': [],
         'media': [],
         'media_errors': [],
         'spouseref': [],
@@ -604,6 +630,8 @@ def scrape_person(purl, media_dir=None):
 
     data['occupation'] = _parse_occupation(tree)
     LOG.debug("Occupation: %s", data['occupation'])
+    data['titles'] = _parse_titles(tree)
+    LOG.debug("Titles: %s", data['titles'])
 
     s = 0
     sname = []
